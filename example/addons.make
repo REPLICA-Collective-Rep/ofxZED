@@ -1,1 +1,2 @@
 ofxZED
+ofxAssimpModelLoader

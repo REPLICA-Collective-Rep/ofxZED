@@ -5,22 +5,23 @@
 void ofApp::setup(){
 
     // Set configuration parameters
-//    std::string sdk(zed.getSDKVersion().get());
-//    ofLogNotice("ofxZED") << "Number of Cameras: " << ofxZED::getNumDevices();
+    ofxZED::getDeviceList();
 
-//    ofLogNotice("ofxZED") << "Running SDK: " << ofxZED::getSDKVersion();
+    c = new Cam();
+    c->setup();
 
-//    ofxZED::getDeviceList();
+
+
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
-
+    c->update();
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-
+    c->draw();
 }
 
 //--------------------------------------------------------------

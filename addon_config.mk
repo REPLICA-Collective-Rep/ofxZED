@@ -87,9 +87,9 @@ linux64:
 	# linux only, any library that should be included in the project using
 	# pkg-config
 	# ADDON_PKG_CONFIG_LIBRARIES =
-	ADDON_INCLUDES = /usr/local/cuda-10.0/include
+	ADDON_INCLUDES += /usr/local/cuda-10.0/include
 	ADDON_INCLUDES += /usr/local/zed/include
-	ADDON_LIBS = /usr/local/cuda-10.0/lib64/libnppc.so.10.0
+	ADDON_LIBS += /usr/local/cuda-10.0/lib64/libnppc.so.10.0
 	ADDON_LIBS += /usr/local/zed/lib/libsl_core.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_input.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_svo.so

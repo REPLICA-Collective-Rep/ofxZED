@@ -33,6 +33,22 @@ public:
         if (err != sl::SUCCESS) {
             ofLogError( "ofxZED") << "Could not connect";
         }
+
+    }
+
+    bool isOpened() {
+        return z.isOpened();
+    }
+
+    unsigned long getTimestampFromSensor() {
+//        uint64_t
+        return z.getTimestamp(sl::TIME_REFERENCE_IMAGE);
+    }
+    unsigned long getTimestampFromFunction() {
+        return z.getTimestamp(sl::TIME_REFERENCE_IMAGE);
+    }
+    unsigned long getLastTimestamp() {
+        return z.getTimestamp(sl::TIME_REFERENCE_LAST);
     }
     void update() {
 
