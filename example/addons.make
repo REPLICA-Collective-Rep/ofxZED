@@ -1,2 +1,0 @@
-ofxZED
-ofxAssimpModelLoader

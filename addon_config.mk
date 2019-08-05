@@ -88,17 +88,67 @@ linux64:
 	# pkg-config
 	# ADDON_PKG_CONFIG_LIBRARIES =
 	ADDON_INCLUDES += /usr/local/cuda-10.0/include
+	ADDON_CFLAGS += -I/usr/local/cuda-10.0/include
+
 	ADDON_INCLUDES += /usr/local/zed/include
+	ADDON_CFLAGS += -I/usr/local/zed/include
+
+
 	ADDON_LIBS += /usr/local/cuda-10.0/lib64/libnppc.so.10.0
+	ADDON_LDFLAGS = -L/usr/local/cuda-10.0/lib64
+
 	ADDON_LIBS += /usr/local/zed/lib/libsl_core.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_input.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_svo.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_zed.so
+	ADDON_LDFLAGS += -L/usr/local/zed/lib
 vs:
 	# After compiling copy the following dynamic libraries to the executable directory
 	# only windows visual studio
 	# ADDON_DLLS_TO_COPY = 
-	
+	ADDON_INCLUDES += "C:/Program Files (x86)/ZED SDK/include"
+# 	ADDON_CFLAGS += -I"C:/Program Files (x86)/ZED SDK/include"
+	ADDON_INCLUDES += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/include"
+# 	ADDON_CFLAGS += -I"C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/include"
+	ADDON_LIBS += "C:/Program Files (x86)/ZED SDK/lib/sl_core64.lib"
+	ADDON_LIBS += "C:/Program Files (x86)/ZED SDK/lib/sl_input64.lib"
+	ADDON_LIBS += "C:/Program Files (x86)/ZED SDK/lib/sl_zed64.lib"
+# 	ADDON_LDFLAGS += -L"C:/Program Files (x86)/ZED SDK/lib"
+# 	ADDON_LDFLAGS += -L"C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/OpenCL.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cublas.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cuda.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cudadevrt.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cudart.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cudart_static.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cufft.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cufftw.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/curand.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cusolver.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/cusparse.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppc.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppial.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppicc.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppicom.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppidei.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppif.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppig.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppim.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppist.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppisu.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nppitc.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/npps.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nvblas.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nvgraph.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nvml.lib"
+	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nvrtc.lib"
+
+		
+# 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cuda.lib"
+# 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cudadevrt.lib"
+# 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cudart.lib"
+# 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cudart_static.lib"
+# 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/OpenCL.lib"
 linuxarmv6l:
 linuxarmv7l:
 android/armeabi:	
