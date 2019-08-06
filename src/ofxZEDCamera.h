@@ -32,7 +32,7 @@ public:
 		return z.getCameraInformation().serial_number;
 	}
 
-	sl::CameraInformation & getCameraInformation() {
+    sl::CameraInformation getCameraInformation() {
 		sl::CameraInformation i;
 		if (!z.isOpened()) {
 			ofLogError("ofxZED") << "Cannot get CameraInformation on closed Camera";

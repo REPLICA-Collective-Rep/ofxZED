@@ -88,20 +88,20 @@ linux64:
 	# pkg-config
 	# ADDON_PKG_CONFIG_LIBRARIES =
 	ADDON_INCLUDES += /usr/local/cuda-10.0/include
-	ADDON_CFLAGS += -I/usr/local/cuda-10.0/include
+# 	ADDON_CFLAGS += -I/usr/local/cuda-10.0/include
 
 	ADDON_INCLUDES += /usr/local/zed/include
-	ADDON_CFLAGS += -I/usr/local/zed/include
+# 	ADDON_CFLAGS += -I/usr/local/zed/include
 
 
 	ADDON_LIBS += /usr/local/cuda-10.0/lib64/libnppc.so.10.0
-	ADDON_LDFLAGS = -L/usr/local/cuda-10.0/lib64
+# 	ADDON_LDFLAGS = -L/usr/local/cuda-10.0/lib64
 
 	ADDON_LIBS += /usr/local/zed/lib/libsl_core.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_input.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_svo.so
 	ADDON_LIBS += /usr/local/zed/lib/libsl_zed.so
-	ADDON_LDFLAGS += -L/usr/local/zed/lib
+# 	ADDON_LDFLAGS += -L/usr/local/zed/lib
 vs:
 	# After compiling copy the following dynamic libraries to the executable directory
 	# only windows visual studio

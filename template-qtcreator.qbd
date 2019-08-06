@@ -25,7 +25,7 @@ Project{
         // flags by default to add the core libraries, search paths...
         // this flags can be augmented through the following properties:
         of.pkgConfigs: []       // list of additional system pkgs to include
-        of.includePaths: ["/usr/local/cuda-10.0/include", "/usr/local/zed/include"]
+        of.includePaths: []     // header search paths
         of.cFlags: []           // flags passed to the c compiler
         of.cxxFlags: []         // flags passed to the c++ compiler
         of.linkerFlags: []      // flags passed to the linker
@@ -33,7 +33,7 @@ Project{
                                 // and can be checked with #ifdef or #if in the code
         of.frameworks: []       // osx only, additional frameworks to link with the project
         of.staticLibraries: []  // static libraries
-        of.dynamicLibraries: ["/usr/local/cuda-10.0/lib64/libnppc.so.10.0", "/usr/local/zed/lib/libsl_core.so","/usr/local/zed/lib/libsl_input.so","/usr/local/zed/lib/libsl_svo.so","/usr/local/zed/lib/libsl_zed.so"]
+        of.dynamicLibraries: [] // dynamic libraries
 
         // other flags can be set through the cpp module: http://doc.qt.io/qbs/cpp-module.html
         // eg: this will enable ccache when compiling
