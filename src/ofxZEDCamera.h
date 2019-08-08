@@ -92,6 +92,69 @@ public:
 		return pix;
 	}
 
+    int frameCount = 0;
+
+    bool isRecording = false;
+
+    string getTimestamp() {
+        string date =  ofToString(ofGetYear()) + "-" + ofToString(ofGetMonth()) + "-" + ofToString(ofGetDay()) ;
+        date += "-";
+        std::chrono::system_clock::time_point p = std::chrono::system_clock::now();
+        std::time_t t = std::chrono::system_clock::to_time_t(p);
+//        std::stringstream time;
+        string format =  "%a %b %d %y %H:%M:%S ";
+//        time << std::put_time(&t, format.c_str());
+
+        char buff[255];
+        strftime(buff, 255, "%Y-%m-%d_%H:%M:%S", localtime(&t));
+        string time(buff);
+
+        return (time);
+    }
+
+    void record(bool b, string path, bool autoPath = true) {
+
+        if (b) {
+            frameCount = 0;
+            //std::filesystem::last_write_time(file);
+            if (autoPath) {
+                path += "";
+                path +=  ofToString( z.getCameraInformation().serial_number );
+                path += "_";
+                path += getTimestamp();
+    //            path += ofGetCurrentTime();
+                path += ".svo";
+            }
+            ofLogNotice("ofxZED") << "recording to" << path;
+            sl::String p(path.c_str());
+            auto error = z.enableRecording(p, sl::SVO_COMPRESSION_MODE_HEVC);
+            if (error != sl::SUCCESS) {
+                ofLogError("ofxZED") << "Recording initialisation error";
+                if (error == sl::ERROR_CODE_SVO_RECORDING_ERROR)
+                   ofLogError("ofxZED") << " Note : This error mostly comes from a wrong path or missing writing permissions.";
+                if (error == sl::ERROR_CODE_SVO_UNSUPPORTED_COMPRESSION)
+                    ofLogError("ofxZED") << " Note : This error mostly comes from a non-compatible graphic card. If you are using HEVC compression (H265), please note that most of the graphic card below pascal architecture will not support it. Prefer to use AVCHD compression which is supported on most of NVIDIA graphic cards";
+
+                z.close();
+
+            } else {
+                isRecording = b;
+            }
+        } else {
+            isRecording = b;
+            frameCount = 0;
+            z.disableRecording();
+            ofLogNotice("ofxZED") << "Stopped recording";
+        }
+    }
+
+    void toggleRecording(string path, bool autoPath = true) {
+        if (!isRecording) {
+            record(true, path, autoPath);
+        } else {
+            record(false, path, autoPath);
+        }
+    }
 	void update() {
 
 		// Set runtime parameters after opening the camera
@@ -101,6 +164,12 @@ public:
 
 
 		if (z.grab(runtime_parameters) == sl::SUCCESS) {
+
+            if (isRecording) {
+                sl::RecordingState state = z.record();
+                if (state.status) frameCount++;
+//                ofLogNotice("ofxZED") << "Frame count: " << frameCount;
+            }
 
 			z.retrieveImage(colorMat, sl::VIEW_LEFT, sl::MEM_CPU, 320,180);
 			z.retrieveImage(depthMat, sl::VIEW_DEPTH, sl::MEM_CPU, 320, 180);
@@ -156,6 +225,16 @@ public:
 
     int open(int i = -1) {
 
+        //camera_fps.set(p.camera_fps);
+        //depth_stabilisation.set(p.depth_stabilization);
+        //depth_mode.set(p.depth_mode);
+        //camera_image_flip.set(p.camera_image_flip);
+        //camera_disable_imu.set(p.camera_disable_imu);
+        //enable_right_side_measure.set(p.enable_right_side_measure);
+        //svo_input_filename.set(p.svo_input_filename.get());
+
+        ofAddListener(ofGetWindowPtr()->events().exit, this,&ofxZEDCamera::close);
+
         sl::InitParameters p;
 
 		p.depth_mode = sl::DEPTH_MODE_QUALITY; // Use PERFORMANCE depth mode
@@ -185,24 +264,21 @@ public:
 
 		return isOpened;
 
-		//camera_fps.set(p.camera_fps);
-		//depth_stabilisation.set(p.depth_stabilization);
-		//depth_mode.set(p.depth_mode);
-		//camera_image_flip.set(p.camera_image_flip);
-		//camera_disable_imu.set(p.camera_disable_imu);
-		//enable_right_side_measure.set(p.enable_right_side_measure);
-		//svo_input_filename.set(p.svo_input_filename.get());
 
 
     }
+
 
 	sl::Camera & getCamera() {
 		return z;
 	}
 
-	void close() {
-		z.close();
-	}
+    void close() {
+        z.close();
+    }
+    void close(ofEventArgs &args) {
+        z.close();
+    }
 
     bool isOpened() {
         return z.isOpened();
@@ -228,7 +304,4 @@ public:
 		ofEnableBlendMode(OF_BLENDMODE_ALPHA);
     }
 
-    void save() {
-
-    }
 };
