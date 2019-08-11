@@ -1,5 +1,6 @@
 #pragma once
 
+#ifndef TARGET_OSX
 #include "ofMain.h"
 #include <sl/Camera.hpp>
 
@@ -305,3 +306,5 @@ public:
     }
 
 };
+
+#endif

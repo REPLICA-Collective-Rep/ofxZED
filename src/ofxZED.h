@@ -1,13 +1,15 @@
 #pragma once
 
-#include "ofMain.h"
-#include <sl/Camera.hpp>
-#include "ofxZEDCamera.h"
-using namespace sl;
+#ifndef TARGET_OSX
+    #include "ofMain.h"
+    #include <sl/Camera.hpp>
+    #include "ofxZEDCamera.h"
+    using namespace sl;
 
 
-namespace ofxZED {
+    namespace ofxZED {
 
-    string getSDKVersion();
-    int getNumDevices();
-}
+        string getSDKVersion();
+        int getNumDevices();
+    }
+#endif
