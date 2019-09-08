@@ -3,19 +3,35 @@
 #include "ofMain.h"
 #include <sl/Camera.hpp>
 
+/* 
+
+ZED SDK: SVO-related methods
+
+int         getSVOPosition()
+void        setSVOPosition(int frame_number)
+int         getSVONumberOfFrames()
+Resolution  getResolution() 
+            returns { size_t width, size_t height }
+float       getCameraFPS()
+timeStamp   getTimestamp( sl::TIME_REFERENCE reference_time) 
+            returns { typedef uint64_t timeStamp }
+
+sl::TIME_REFERENCE {
+    TIME_REFERENCE_IMAGE - defines the timestamp at the time the frame has been extracted from USB stream.
+    TIME_REFERENCE_CURRENT - defines the timestamp at the time of the function call.
+    TIME_REFERENCE_LAST
+}
+
+NB! make a function "guessDroppedFrames()"
+
+**/
+
+
 class ofxZED : public sl::Camera {
-    ofTexture colorTexture, depthTexture;
+    ofTexture colorTexture, de pthTexture;
     sl::Mat colorMat;
     sl::Mat depthMat;
-//	sl::Pose camera_path;
-//	sl::TRACKING_STATE tracking_state;
 public:
-//    sl::Camera z;
-//	sl::float3 translation;
-//	ofVec3f rotEuler;
-//	ofVec3f rotAngle;
-//	ofQuaternion rotQuat;
-
     sl::InitParameters init;
 //    ofParameter<int> camera_fps;
 //    ofParameter<int> depth_stabilisation;
@@ -206,24 +222,6 @@ public:
 
 
     bool openSVO(string svoPath) {
-
-        // ** Possible SVO related methods **
-
-        // int getSVOPosition ()
-        // void 	setSVOPosition (int frame_number)
-        // int 	getSVONumberOfFrames ()
-        // Resolution getResolution 	( 		) Attributes: 	size_t 	width size_t 	height
-        // float getCameraFPS 	( 		)
-        // timeStamp getTimestamp 	( 	sl::TIME_REFERENCE  	reference_time	) 	Attribute: typedef uint64_t timeStamp
-        //          TIME_REFERENCE_IMAGE
-
-        //        Defines the timestamp at the time the frame has been extracted from USB stream.
-        //        TIME_REFERENCE_CURRENT
-
-        //        Defines the timestamp at the time of the function call.
-        //        TIME_REFERENCE_LAST
-
-        // make a function "guessDroppedFrames()"
 
         ofLogNotice("ofxZED") << "loading svo" << svoPath;
         init.svo_input_filename.set(svoPath.c_str());
