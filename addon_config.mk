@@ -137,7 +137,6 @@ vs:
 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nvml.lib"
 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/x64/nvrtc.lib"
 
-		
 # 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cuda.lib"
 # 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cudadevrt.lib"
 # 	ADDON_LIBS += "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v10.0/lib/Win32/cudart.lib"
