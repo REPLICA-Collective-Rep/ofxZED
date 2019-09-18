@@ -27,58 +27,140 @@ NB! make a function "guessDroppedFrames()"
 **/
 
 
-class ofxZED : public sl::Camera {
-    ofTexture colorTexture, depthTexture;
-    sl::Mat colorMat;
-    sl::Mat depthMat;
-public:
-    sl::InitParameters init;
-//    ofParameter<int> camera_fps;
-//    ofParameter<int> depth_stabilisation;
-//    ofParameter<int> depth_mode;
-//    ofParameter<bool> camera_image_flip;
-//    ofParameter<bool> camera_disable_imu;
-//    ofParameter<bool> enable_right_side_measure;
-//    ofParameter<string> svo_input_filename;
-
-    int frameCount = 0;
-    bool isRecording = false;
-    bool frameNew = false;
-
-    int getSerialNumber();
-
-    void logSerial();
-
-    ofPixels processDepthMat(sl::Mat & mat);
-    ofPixels processColorMat(sl::Mat & mat);
+namespace ofxZED {
 
 
-    string getTimestamp(string format = "%Y-%m-%d_%H:%M:%S");
+    class Camera : public sl::Camera {
+    public:
 
-    void record(string path, bool b, bool autoPath = true);
+        int lastPosition;
+        float stereoOffset;
+        bool stereoAlternate;
+        ofTexture leftTex, rightTex, depthTex;
+        ofPixels leftPix, rightPix, depthPix;
+        sl::Mat leftMat, rightMat, depthMat;
+        sl::InitParameters init;
+        int frameCount = 0;
+        bool isRecording = false;
+        bool frameNew = false;
 
-    void toggleRecording(string path, bool autoPath = true);
-    void update();
-    bool isFrameNew();
+        Camera();
 
-    ofQuaternion eulerToQuat(const ofVec3f & rotationEuler);
+        int getSerialNumber();
 
-    int getWidth();
-    int getHeight();
+        void logSerial();
+
+        void processMatToPix(ofPixels & pix, sl::Mat & mat, bool psychedelic = false);
 
 
-    bool openSVO(string svoPath);
+        string getTimestamp(string format = "%Y-%m-%d_%H:%M:%S");
 
-    bool openCamera(int i = -1);
+        void record(string path, bool b, bool autoPath = true);
 
-    bool openWithParams();
+        void toggleRecording(string path, bool autoPath = true);
+        void updateRecording();
+        bool isFrameNew();
 
-    uint64_t getFrameTimestamp();
-    uint64_t getLastTimestamp();
+        ofQuaternion eulerToQuat(const ofVec3f & rotationEuler);
 
-    void close(ofEventArgs &args);
-    void close();
+        int getWidth();
+        int getHeight();
 
-    void draw(ofRectangle r);
 
-};
+        bool openSVO(string svoPath);
+
+        bool openCamera(int i = -1);
+
+        bool openWithParams();
+
+        uint64_t getFrameTimestamp();
+        uint64_t getLastTimestamp();
+
+        void close(ofEventArgs &args);
+        void close();
+
+        void draw(ofRectangle r);
+
+    };
+
+    class SVO {
+    public:
+        string filename;
+        int fps;
+        ofVec2f resolution;
+        uint64_t startTime;
+        uint64_t endTime;
+        int durationSeconds;
+        int durationMinutes;
+        int predictedFrames;
+        int totalFrames;
+        int droppedFrames;
+        int averageFPS;
+
+        string droppedAmount, startHuman, endHuman;
+
+        SVO() { }
+
+        void init( string filename_, int fps_, ofVec2f resolution_, int totalFrames_, sl::timeStamp startTime_, sl::timeStamp endTime_);
+        void init( ofJson j );
+
+        string getDescriptionStr();
+        string getCSV();
+        ofJson getJson();
+    };
+
+    class Database {
+    private:
+        Camera zed;
+        string saveLocation;
+        ofDirectory dir;
+        int currIndex;
+
+        void process(ofFile & f);
+        void write();
+    public:
+
+
+        int totalFiles;
+        int totalFrames;
+        vector<SVO> data;
+        ofJson json;
+        string csv;
+        Database() { };
+        void init(string location, string fileName = "_database");
+        std::map<string, vector<SVO *>> getSortedByDay();
+        vector<SVO *> getPtrs();
+        vector<SVO *> getPtrsInsideTimestamp(int time);
+    };
+
+
+    class Player : public ofxZED::Camera {
+    public:
+        SVO * svo;
+        bool openSVO(string root, SVO * svo_);
+        void setPositionFromTimestamp(int time);
+        void grab(bool left, bool right, bool depth);
+        void drawStereoscopic(ofRectangle r);
+    };
+
+
+
+    static string humanTimestamp(uint64_t & timestamp, string format = "Date %Y-%m-%d Time %H:%M:%S ");
+    static std::time_t TimestampToTimeT(sl::timeStamp timestamp);
+
+    static int TimestampToInt(uint64_t timestamp);
+    static int TimestampToDurationSeconds(sl::timeStamp end, sl::timeStamp start);
+    static int getDurationInMillis(float fps_, float totalFrames_);
+    bool sortSVO(SVO & a, SVO & b);
+    bool sortSVOPtrs(SVO * a, SVO * b);
+    static float getDurationInSeconds(float fps_, float totalFrames_);
+    static float getDurationInMinutes(float fps_, float totalFrames_);
+    static float getDurationInHours(float fps_, float totalFrames_);
+    static int getHumanSeconds(float fps_, float totalFrames_);
+    static int getHumanMinutes(float fps_, float totalFrames_);
+    static int getHumanHours(float fps_, float totalFrames_);
+    static string getDurationInHuman(float fps_, float totalFrames_);
+
+
+}
+
