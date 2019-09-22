@@ -30,22 +30,16 @@ namespace ofxZED {
 
     /*-- Databse --*/
 
+    void Database::load(string databaseLocation, string databaseName) {
 
+        ofLogNotice("ofxZED::Database") << "loading json database";
+        string loadPath = ofFilePath::join(databaseLocation, databaseName);
+        json = ofLoadJson( databaseLocation + ".json");
+        isForcingRecreate = false;
+        finish();
+    }
 
-    void Database::init(string location, bool recreate, string fileName) {
-
-        ofLogNotice("ofxZED::Database") << "opening json database";
-        isCreatingBins = recreate;
-        dir.allowExt("svo");
-        dir.open(location);
-        dir.listDir();
-
-        totalFiles = dir.getFiles().size();
-        currIndex = 0;
-        totalFrames = 0;
-
-        saveLocation = dir.getAbsolutePath() + "/" + fileName;
-        json = ofLoadJson(saveLocation + ".json");
+    void Database::finish() {
 
 
         for (auto f : dir.getFiles()) process(f);
@@ -55,6 +49,27 @@ namespace ofxZED {
 
         ofSort(data, SVO::sortSVO);
         if (zed.isOpened()) zed.close();
+    }
+
+
+    void Database::build(string location, bool forceRecreate, string fileName) {
+
+        ofLogNotice("ofxZED::Database") << "opening json database";
+        isForcingRecreate = forceRecreate;
+        dir.allowExt("svo");
+        dir.open(location);
+        dir.listDir();
+
+        totalFiles = dir.getFiles().size();
+        currIndex = 0;
+        totalFrames = 0;
+
+        directoryPath = dir.getAbsolutePath();
+        databaseName = fileName;
+        string loadPath = ofFilePath::join(directoryPath, databaseName);
+        json = ofLoadJson(loadPath + ".json");
+        finish();
+
     }
 
 
@@ -114,7 +129,7 @@ namespace ofxZED {
     void Database::process(ofFile & f) {
 
 
-        if (json["files"].find(f.getFileName()) != json["files"].end() && !isCreatingBins) {
+        if (json["files"].find(f.getFileName()) != json["files"].end() && !isForcingRecreate) {
 
             SVO svo;
             svo.init(json["files"][f.getFileName()]);
@@ -140,7 +155,7 @@ namespace ofxZED {
                 ofLogError("ofxZED::Database") << "could not open" << f.getAbsolutePath();
                 OF_EXIT_APP(0);
             }
-            write();
+            write(directoryPath, databaseName);
         }
 
         ofLogNotice("ofxZED::Database") << "loading" << currIndex+1 << "/" << dir.getFiles().size();
@@ -149,7 +164,7 @@ namespace ofxZED {
 
 
     }
-    void Database::write() {
+    void Database::write(string dirPath, string dbName) {
 
 
         float ts = ofGetElapsedTimef();
@@ -165,8 +180,9 @@ namespace ofxZED {
 
         ofBuffer buff;
         buff.set(csv.c_str(), csv.size());
-        ofSaveJson(saveLocation + ".json" , json);
-        ofBufferToFile(saveLocation + ".csv", buff);
+        string savePath = ofFilePath::join(dirPath, dbName);
+        ofSaveJson(savePath + ".json" , json);
+        ofBufferToFile(savePath + ".csv", buff);
 
         ofLogNotice("ofxZED::Database") << "writing db took" << ofGetElapsedTimef() - ts << "seconds";
 
@@ -183,16 +199,23 @@ namespace ofxZED {
 
         time_point tps = ofxZED::SVO::getTimePoint(start);
         time_point tpe = ofxZED::SVO::getTimePoint(end);
-
+        string format = "%H:%M";
         vector<SVO *> db;
         for (auto & d : data) {
 
             time_point tpstart = ofxZED::SVO::getTimePoint(d.getStart());
             time_point tpend = ofxZED::SVO::getTimePoint(d.getEnd());
 
-            bool hasStart = (tps > tpstart  && tps < tpend);
-            bool hasEnd = (tpe > tpstart && tpe < tpend);
-            if (hasStart || hasEnd) db.push_back(&d);
+//            bool hasStart = (tps >= tpstart  && tps <= tpend);
+//            bool hasEnd = (tpe >= tpstart && tpe < tpend);
+            bool hasStart = (start >= d.getStart()  && start <= d.getEnd());
+            bool hasEnd = (end >= d.getStart() && end < d.getEnd());
+            if (hasStart || hasEnd) {
+                if (hasStart) ofLog() << "HAS START" << ofxZED::SVO::getHumanTimestamp(start, format) <<  ofxZED::SVO::getHumanTimestamp(d.getStart(), format);
+                if (hasEnd) ofLog() << "HAS END" << ofxZED::SVO::getHumanTimestamp(end, format) <<  ofxZED::SVO::getHumanTimestamp(d.getEnd(), format);
+                db.push_back(&d);
+                ofLog() << "ADDING" << d.filename;
+            }
         }
         return db;
 

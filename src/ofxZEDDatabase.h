@@ -12,16 +12,17 @@ namespace ofxZED {
 
 
         Camera zed;
-        string saveLocation;
+        string directoryPath;
+        string databaseName;
         ofDirectory dir;
         int currIndex;
 
+        void finish();
         void scrape(ofFile & f, vector<Frame> & frames, vector<int> & lookup);
         void process(ofFile & f);
-        void write();
     public:
 
-        bool isCreatingBins;
+        bool isForcingRecreate;
         int totalFiles;
         int totalFrames;
         vector<SVO> data;
@@ -29,7 +30,9 @@ namespace ofxZED {
         string csv;
         Database() { };
 
-        void init(string location, bool recreate = false, string fileName = "_database");
+        void build(string location, bool forceRecreate = false, string fileName = "_database");
+        void load(string databaseLocation, string databaseName);
+        void write(string dirPath, string dbName);
 
         vector<SVO *> getFilteredByRange( uint64_t start, uint64_t end);
         std::map<string, vector<SVO *>> getSortedByDay(vector<SVO *> svos);

@@ -56,10 +56,19 @@ namespace ofxZED {
         typedef std::chrono::microseconds microseconds;
         typedef std::chrono::seconds seconds;
 
-        std::tm tm = {};
+        /*-- account for daylight saving w. tm_isdst --*/
+
+        std::tm tm = {0};
         std::stringstream ss(date);
         ss >> std::get_time(&tm, format.c_str());
+        tm.tm_isdst = -1;
+
+        /*-- convert to chrono --*/
+
         time_point tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+
+        /*-- count to uint64 --*/
+
         auto out = std::chrono::duration_cast<nano_seconds>(tp.time_since_epoch()).count();
         return out;
     }

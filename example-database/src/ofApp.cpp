@@ -23,7 +23,7 @@ void ofApp::setup(){
      * an unpopulated database might take some time as it scans all frames for their timestamps
      * the database.json is loaded as vector<ofxZED::SVO> data  --*/
 
-    db.init(currentRoot);
+    db.build(currentRoot);
 
     /*-- search for these time ranges --*/
 
@@ -33,6 +33,9 @@ void ofApp::setup(){
     ranges.push_back( Range("Stretching in Line w. Matej", "14/08/2019 15:33:52", "14/08/2019 15:52:37") );
 
     print = "";
+
+    ofxZED::Database newDb;
+    string newDbPath = ofFilePath::join(currentRoot, "/_presentation/");
 
     for (auto & range : ranges) {
         print += range.name + "\n";
@@ -47,10 +50,22 @@ void ofApp::setup(){
         /*-- find SVOs filtered by start and end time --*/
 
         vector<ofxZED::SVO *> svos = db.getFilteredByRange( start, end );
-        for (auto & svo : svos) print += svo->filename + "\n";
+        for (auto & svo : svos) {
+            print += svo->filename + "\n";
+            ofFile file( ofFilePath::join(currentRoot, svo->filename) );
+
+            /*-- copy SVOs to new folder and new database --*/
+
+            file.copyTo( ofFilePath::join(newDbPath, svo->filename));
+            newDb.data.push_back( *svo );
+        }
         print += "\n";
 
     }
+
+    /*-- save new Database for only SVOs in ranges --*/
+
+    newDb.write( newDbPath, "database" );
 
     ofLog() << print;
 }
