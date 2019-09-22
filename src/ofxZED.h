@@ -29,9 +29,82 @@ NB! make a function "guessDroppedFrames()"
 
 namespace ofxZED {
 
+    struct Frame {
+    public:
+        uint64_t timestamp;
+        int frame;
+        Frame( int f, uint64_t t) {
+            timestamp = t;
+            frame = f;
+        }
+    };
+
+    class SVO {
+    public:
+
+        vector<int> lookup;
+        vector<Frame> frames;
+        string filename;
+        string path;
+        int fps;
+
+        SVO() { }
+
+        void init( ofFile & f, int fps_);
+        void init( ofJson j );
+
+        /*-- util --*/
+
+        uint64_t getStart();
+        uint64_t getEnd();
+
+        /*-- time util --*/
+
+        /*-- increment seconds to a timestamp --*/
+        static void incrementSeconds(uint64_t & timestamp, float seconds);
+
+        /*-- returns milliseconds between two timestamps --*/
+        static int getDurationMillis(uint64_t start, uint64_t end);
+
+        /*-- maps a float range into a timestamp range, preserving fidelity --*/
+        static uint64_t mapToTimestamp(float value, float from, float to, uint64_t start, uint64_t end, bool constrain = false);
+
+        /*-- maps a timestamp into a float range --*/
+        float mapFromTimestamp(uint64_t timestamp, uint64_t start, uint64_t end, float from, float to, bool constrain);
+
+        /*-- returns human-readable duration between two timestamps --*/
+        static string getHumanDuration(uint64_t start, uint64_t end, string format = "%H-%M-%S-%.");
+
+        /*-- formats timestamp into a human-readable string --*/
+        static string getHumanTimestamp(uint64_t timestamp, string format = "%Y-%m-%d_%H-%M-%S-%.");
+
+
+        static bool sortSVO(SVO & a, SVO & b);
+        static bool sortSVOPtrs(SVO * a, SVO * b);
+
+
+        /*-- info --*/
+
+        int getPredictedFrames();
+        int getTotalFrames();
+        int getLookupLength();
+        float getAverageFPS();
+        string getDroppedPercent();
+        string printInfo();
+
+        /*-- formats --*/
+
+        string getCSV();
+        ofJson getJson();
+    };
 
     class Camera : public sl::Camera {
     public:
+
+
+        static string humanTimestamp(uint64_t & timestamp, string format = "Date %Y-%m-%d Time %H:%M:%S ");
+        static std::time_t TimestampToTimeT(sl::timeStamp timestamp);
+
 
         int lastPosition;
         float stereoOffset;
@@ -79,87 +152,49 @@ namespace ofxZED {
         void close(ofEventArgs &args);
         void close();
 
-        void draw(ofRectangle r);
+        void draw(ofRectangle r, bool left = true, bool right = false, bool depth = false);
 
     };
-
-    class SVO {
+    class Player : public ofxZED::Camera {
     public:
-        string filename;
-        int fps;
-        ofVec2f resolution;
-        uint64_t startTime;
-        uint64_t endTime;
-        int durationSeconds;
-        int durationMinutes;
-        int predictedFrames;
-        int totalFrames;
-        int droppedFrames;
-        int averageFPS;
-
-        string droppedAmount, startHuman, endHuman;
-
-        SVO() { }
-
-        void init( string filename_, int fps_, ofVec2f resolution_, int totalFrames_, sl::timeStamp startTime_, sl::timeStamp endTime_);
-        void init( ofJson j );
-
-        string getDescriptionStr();
-        string getCSV();
-        ofJson getJson();
+        SVO * svo;
+        bool openSVO(string root, SVO * svo_);
+        int grab(bool left, bool right, bool depth);
+        void drawStereoscopic(ofRectangle r);
     };
 
     class Database {
     private:
+
+
         Camera zed;
         string saveLocation;
         ofDirectory dir;
         int currIndex;
 
+        void scrape(ofFile & f, vector<Frame> & frames, vector<int> & lookup);
         void process(ofFile & f);
         void write();
     public:
 
-
+        bool isCreatingBins;
         int totalFiles;
         int totalFrames;
         vector<SVO> data;
         ofJson json;
         string csv;
         Database() { };
-        void init(string location, string fileName = "_database");
-        std::map<string, vector<SVO *>> getSortedByDay();
+
+        void init(string location, bool recreate, string fileName = "_database");
+
+        std::map<string, vector<SVO *>> getSortedByDay(vector<SVO *> svos);
+        std::map<string, vector<SVO *>> getSortedBySerialNumber(vector<SVO *> svos);
         vector<SVO *> getPtrs();
-        vector<SVO *> getPtrsInsideTimestamp(int time);
-    };
-
-
-    class Player : public ofxZED::Camera {
-    public:
-        SVO * svo;
-        bool openSVO(string root, SVO * svo_);
-        void setPositionFromTimestamp(int time);
-        void grab(bool left, bool right, bool depth);
-        void drawStereoscopic(ofRectangle r);
+        vector<SVO *> getPtrsInsideTimestamp(uint64_t time);
     };
 
 
 
-    static string humanTimestamp(uint64_t & timestamp, string format = "Date %Y-%m-%d Time %H:%M:%S ");
-    static std::time_t TimestampToTimeT(sl::timeStamp timestamp);
-
-    static int TimestampToInt(uint64_t timestamp);
-    static int TimestampToDurationSeconds(sl::timeStamp end, sl::timeStamp start);
-    static int getDurationInMillis(float fps_, float totalFrames_);
-    bool sortSVO(SVO & a, SVO & b);
-    bool sortSVOPtrs(SVO * a, SVO * b);
-    static float getDurationInSeconds(float fps_, float totalFrames_);
-    static float getDurationInMinutes(float fps_, float totalFrames_);
-    static float getDurationInHours(float fps_, float totalFrames_);
-    static int getHumanSeconds(float fps_, float totalFrames_);
-    static int getHumanMinutes(float fps_, float totalFrames_);
-    static int getHumanHours(float fps_, float totalFrames_);
-    static string getDurationInHuman(float fps_, float totalFrames_);
 
 
 }

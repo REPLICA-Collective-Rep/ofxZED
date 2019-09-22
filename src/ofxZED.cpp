@@ -253,7 +253,7 @@ void ofxZED::Camera::close() {
     sl::Camera::close();
 }
 
-void ofxZED::Camera::draw(ofRectangle r) {
+void ofxZED::Camera::draw(ofRectangle r, bool left, bool right, bool depth) {
 
     int w = getWidth();
     int h = getHeight();
@@ -263,7 +263,7 @@ void ofxZED::Camera::draw(ofRectangle r) {
     ofSetColor(255);
     ofEnableAlphaBlending();
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
-    if (leftTex.isAllocated() && rightTex.isAllocated()) {
+    if (leftTex.isAllocated() && rightTex.isAllocated() && left && right) {
         int offset = (float)(stereoOffset * (float)(w*0.01));
         ofRectangle lr = r;
         ofRectangle rr = r;
@@ -271,10 +271,10 @@ void ofxZED::Camera::draw(ofRectangle r) {
         rr.x -= offset;
         (stereoAlternate) ? leftTex.draw(lr) : rightTex.draw(rr);
     }
-    if (leftTex.isAllocated() && !rightTex.isAllocated()) leftTex.draw(r);
-    if (!leftTex.isAllocated() && rightTex.isAllocated()) rightTex.draw(r);
+    if (leftTex.isAllocated() && !rightTex.isAllocated() && left && !right) leftTex.draw(r);
+    if (!leftTex.isAllocated() && rightTex.isAllocated() && !left && right) rightTex.draw(r);
     ofEnableBlendMode(OF_BLENDMODE_SCREEN);
-    if (depthTex.isAllocated()) depthTex.draw(r);
+    if (depthTex.isAllocated() && depth) depthTex.draw(r);
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
 }
 
@@ -285,122 +285,153 @@ void ofxZED::Camera::draw(ofRectangle r) {
 namespace ofxZED {
 
 
-    static string humanTimestamp(uint64_t & timestamp, string format) {
+    void SVO::init( ofFile &f, int fps_) {
+        filename = f.getFileName();
+        path = f.getAbsolutePath();
+        fps = fps_;
+    }
 
-        std::time_t t = timestamp / 1000000000;
+    int SVO::getTotalFrames() {
+        return frames.size();
+    }
+    string SVO::getDroppedPercent() {
+        return ofToString((int)(100-((100.0/getPredictedFrames()) * getTotalFrames())))+ "%";
+    }
+    uint64_t SVO::getStart() {
+        if (frames.size() <= 0) {
+            ofLogError("ofxZED::SVO") << "no frames to get start time";
+            return 0;
+        }
+        return frames.front().timestamp;
+    }
+    uint64_t SVO::getEnd() {
+        if (frames.size() <= 0) {
+            ofLogError("ofxZED::SVO") << "no frames to get end time";
+            return 0;
+        }
+        return frames.back().timestamp;
+    }
+    int SVO::getPredictedFrames() {
+        return  ((float)(getDurationMillis(getStart(), getEnd())/1000.0) * (float)fps);
+    }
+
+    /*-- increment seconds to a timestamp --*/
+
+    void SVO::incrementSeconds(uint64_t & timestamp, float seconds) {
+        timestamp += (1000000000.0 * seconds);
+    }
+
+    /*-- returns milliseconds between two timestamps --*/
+
+    int SVO::getDurationMillis(uint64_t start, uint64_t end) {
+
+        typedef std::chrono::milliseconds milliseconds;
+        typedef std::chrono::system_clock::time_point time_point;
+        typedef std::chrono::system_clock::time_point::duration duration;
+        typedef std::chrono::nanoseconds nano_seconds;
+
+        time_point ee{std::chrono::duration_cast<duration>(nano_seconds(end))};
+        time_point ss{std::chrono::duration_cast<duration>(nano_seconds(start))};
+        milliseconds ms = std::chrono::duration_cast<milliseconds>(ee - ss);
+        return ms.count();
+    }
+
+
+    /*-- maps a float range into a timestamp range, preserving fidelity --*/
+
+    uint64_t SVO::mapToTimestamp(float value, float from, float to, uint64_t start, uint64_t end, bool constrain) {
+
+        typedef std::chrono::milliseconds milliseconds;
+        typedef std::chrono::system_clock::time_point time_point;
+        typedef std::chrono::system_clock::time_point::duration duration;
+        typedef std::chrono::nanoseconds nano_seconds;
+        typedef std::chrono::system_clock system_clock;
+
+        int dur = getDurationMillis(start,end);
+        int milli = ofMap(value, from, to, 0, dur, constrain);
+
+        time_point ss{std::chrono::duration_cast<duration>(nano_seconds(start))};
+        ss += milliseconds(milli);
+        auto out = std::chrono::duration_cast<nano_seconds>(ss.time_since_epoch()).count();
+        return out;
+    }
+
+    /*-- maps a timestamp into a float range --*/
+
+    float SVO::mapFromTimestamp(uint64_t timestamp, uint64_t start, uint64_t end, float from, float to, bool constrain) {
+        int value = getDurationMillis(start, timestamp);
+        int range = getDurationMillis(start, end);
+        return ofMap(value, 0, range, from, to, constrain);)
+    }
+
+    /*-- returns human-readable duration between two timestamps --*/
+
+    string SVO::getHumanDuration(uint64_t start, uint64_t end, string format) {
+       std::time_t t = getDurationMillis(start, end);
+       char buff[255];
+       strftime(buff, 255, format.c_str(),  localtime(&t));
+       string time(buff);
+       return time;
+    }
+
+    /*-- formats timestamp into a human-readable string --*/
+
+    string SVO::getHumanTimestamp(uint64_t timestamp, string format) {
+
+        typedef std::chrono::milliseconds milliseconds;
+        typedef std::chrono::system_clock::time_point time_point;
+        typedef std::chrono::system_clock::time_point::duration duration;
+        typedef std::chrono::nanoseconds nano_seconds;
+        typedef std::chrono::system_clock system_clock;
+
+        time_point tt{std::chrono::duration_cast<duration>(nano_seconds(timestamp))};
+        std::time_t t = system_clock::to_time_t(tt);
         char buff[255];
         strftime(buff, 255, format.c_str(),  localtime(&t));
         string time(buff);
+
+        /*-- NOTE, milliseconds are appended if the last two format chars are "%." --*/
+
+        if ( format.substr(format.size() - 2, format.size()) == "%." ) {
+            time.erase(time.size() - 2, time.size());
+            auto millis = std::chrono::duration_cast<milliseconds>(nano_seconds(timestamp)).count();
+            time += ofToString( (millis%1000)/10 );
+        }
         return time;
     }
-    static std::time_t TimestampToTimeT(sl::timeStamp timestamp) {
-        return timestamp / 1000000000;
-    }
 
-    static int TimestampToInt(uint64_t timestamp) {
-        return timestamp / 1000000000;
+    float SVO::getAverageFPS() {
+        float seconds = getDurationMillis(getStart(), getEnd())*1000;
+        return (float)getTotalFrames()/seconds;
     }
-
-    static int TimestampToDurationSeconds(sl::timeStamp end, sl::timeStamp start) {
-        std::time_t e = TimestampToTimeT(end);
-        std::time_t s = TimestampToTimeT(start);
-        double diff =  difftime(e, s);
-        return diff;
+    int SVO::getLookupLength() {
+        return lookup.size();
     }
-    static int getDurationInMillis(float fps_, float totalFrames_) {
-
-        int totalMillis = (1000.0/(float)fps_)*(float)totalFrames_;
-        return totalMillis;
-    }
-
-
-    bool sortSVO(SVO & a, SVO & b) {
-        return (TimestampToTimeT(a.startTime) < TimestampToTimeT(b.startTime));
-    }
-
-    bool sortSVOPtrs(SVO * a, SVO * b)
-    {
-        return (TimestampToTimeT(a->startTime) < TimestampToTimeT(b->startTime) );
-    }
-
-    static float getDurationInSeconds(float fps_, float totalFrames_) {
-        return (float)getDurationInMillis(fps_, totalFrames_)/1000.0;
-    }
-    static float getDurationInMinutes(float fps_, float totalFrames_) {
-        return getDurationInSeconds(fps_, totalFrames_)/60.0;
-    }
-    static float getDurationInHours(float fps_, float totalFrames_) {
-        return getDurationInMinutes(fps_, totalFrames_)/60.0;
-    }
-    static int getHumanSeconds(float fps_, float totalFrames_) {
-        float d = getDurationInSeconds(fps_, totalFrames_);
-        return fmod(d,60);
-    }
-    static int getHumanMinutes(float fps_, float totalFrames_) {
-        float d = getDurationInMinutes(fps_, totalFrames_);
-        return fmod(d,60);
-    }
-    static int getHumanHours(float fps_, float totalFrames_) {
-        float d = getDurationInHours(fps_, totalFrames_);
-        return fmod(d,60);
-    }
-
-    static string getDurationInHuman(float fps_, float totalFrames_) {
-
-        int s_ = getHumanSeconds(fps_, totalFrames_);
-        int m_ = getHumanMinutes(fps_, totalFrames_);
-        int h_ = getHumanHours(fps_, totalFrames_);
-        string human_ =  ( ofToString( h_ ) + " hours " + ofToString( m_ ) + " min " + ofToString( s_ ) + " secs " );
-        return human_;
-    }
-
-    void SVO::init( string filename_, int fps_, ofVec2f resolution_, int totalFrames_, sl::timeStamp startTime_, sl::timeStamp endTime_) {
-        filename = filename_;
-        fps = fps_;
-        resolution = resolution_;
-        totalFrames = totalFrames_;
-        startTime = startTime_;
-        endTime = endTime_;
-
-        startHuman = humanTimestamp(startTime);
-        endHuman = humanTimestamp(endTime);
-
-        durationSeconds =  TimestampToDurationSeconds(endTime, startTime);
-        durationMinutes =  TimestampToDurationSeconds(endTime, startTime)/60;
-        predictedFrames = ((float)durationSeconds * (float)fps);
-        averageFPS = (float)totalFrames/(float)durationSeconds;
-        droppedFrames = (predictedFrames - totalFrames);
-        droppedAmount =  ofToString((int)(100-((100.0/predictedFrames) * totalFrames)))+ "%";
-    }
-
-
-    string SVO::getDescriptionStr() {
+    string SVO::printInfo() {
 
         string info = "\n";
-        info += "Filename: " + filename;
+        info += "File: " + filename;
         info += "\n";
         info += "FPS: " + ofToString( fps );
         info += "\n";
-        info += "Resolution: " + ofToString( resolution[0] ) +" x "+ ofToString( resolution[1] );
+        info += "Start time: " + getHumanTimestamp(getStart());
         info += "\n";
-        info += "Start time: " + startHuman;
+        info += "End time: " + getHumanTimestamp(getEnd());
         info += "\n";
-        info += "End time: " + endHuman;
+        info += "Predicted size: " + ofToString( getPredictedFrames() );
         info += "\n";
-        info += "Predicted frames: " + ofToString( predictedFrames );
+        info += "Actual size: " + ofToString( getTotalFrames() );
         info += "\n";
-        info += "Total frames: " + ofToString( totalFrames );
+        info += "Lookup size: " + ofToString( getLookupLength() );
         info += "\n";
-        info += "Duration seconds: " + ofToString(durationSeconds);
+        info += "Duration: " + ofToString(getHumanDuration(getStart(), getEnd()));
         info += "\n";
-        info += "Duration minutes: " + ofToString(durationMinutes);
+        info += "Dropped amount: " + getDroppedPercent();
         info += "\n";
-        info += "Dropped frames: " + ofToString(droppedFrames);
+        info += "Average FPS: " + ofToString(getAverageFPS());
         info += "\n";
-        info += "Dropped amount: " + ofToString(droppedAmount);
-        info += "\n";
-        info += "Average FPS: " + ofToString(averageFPS);
-        info += "\n";
+
+        ofLogNotice("ofxZED::SVO") << info;
 
         return info;
     }
@@ -411,24 +442,10 @@ namespace ofxZED {
         info += filename;
         info += ",";
         info += ofToString( fps );
-        info += ",";
-        info += ofToString( resolution[0] ) +" x "+ ofToString( resolution[1] );
-        info += ",";
-        info += ofToString( startTime );
-        info += ",";
-        info += ofToString( endTime );
-        info += ",";
-        info += startHuman;
-        info += ",";
-        info += endHuman;
-        info += ",";
-        info += ofToString(durationMinutes);
-        info += ",";
-        info += ofToString(averageFPS);
         info += ',';
-        info += ofToString(totalFrames);
+        for (int i = 0; i < frames.size(); i++) info += ofToString(frames[i].timestamp) + " ";
         info += ',';
-        info += ofToString(predictedFrames);
+        for (int i = 0; i < lookup.size(); i++) info += ofToString(lookup[i]) + " ";
         info += '\n';
 
         return info;
@@ -438,38 +455,18 @@ namespace ofxZED {
         ofJson j;
         j["filename"] = filename;
         j["fps"] = fps;
-        j["resolution"]["width"] = (int)resolution[0];
-        j["resolution"]["height"] = (int)resolution[1];
-        j["startTime"] = startTime;
-        j["endTime"] = endTime;
-        j["startHuman"] = startHuman;
-        j["endHuman"] = endHuman;
-        j["predictedFrames"] = predictedFrames;
-        j["totalFrames"] = totalFrames;
-        j["durationSeconds"] = durationSeconds;
-        j["durationMinutes"] = durationMinutes;
-        j["droppedFrames"] = droppedFrames;
-        j["droppedAmount"] = droppedAmount;
-        j["averageFPS"] = averageFPS;
+        for (int i = 0; i < frames.size(); i++) j["timestamps"][i] = frames[i].timestamp;
+        for (int i = 0; i < lookup.size(); i++) j["lookup"][i] = lookup[i];
         return j;
     }
     void SVO::init( ofJson j ) {
 
+        frames.clear();
+        lookup.clear();
         filename = j["filename"].get<string>();
         fps = j["fps"].get<int>();
-        resolution[0] = j["resolution"]["width"].get<int>();
-        resolution[1] = j["resolution"]["height"].get<int>();
-        startHuman = j["startHuman"].get<string>();
-        endHuman = j["endHuman"].get<string>();
-        startTime = j["startTime"].get<uint64_t>();
-        endTime = j["endTime"].get<uint64_t>();
-        predictedFrames = j["predictedFrames"].get<int>();
-        totalFrames = j["totalFrames"].get<int>();
-        durationSeconds = j["durationSeconds"].get<int>();
-        durationMinutes = j["durationMinutes"].get<int>();
-        droppedFrames = j["droppedFrames"].get<int>();
-        droppedAmount = j["droppedAmount"].get<string>();
-        averageFPS = j["averageFPS"].get<float>();
+        for (int i = 0; i < j["timestamps"].size(); i++) frames.push_back( Frame(i, j["timestamps"][i].get<uint64_t>()));
+        for (int i = 0; i < j["lookup"].size(); i++) lookup.push_back( j["lookup"][i].get<int>() );
     }
 
 
@@ -479,20 +476,16 @@ namespace ofxZED {
         ofLog() << "path" << p;
         return ofxZED::Camera::openSVO(p);
     }
-    void Player::setPositionFromTimestamp(int time) {
 
-    }
-
-
-    void Player::grab(bool left, bool right, bool depth) {
+    int Player::grab(bool left, bool right, bool depth) {
 
 
+        if (!sl::Camera::isOpened()) return  sl::Camera::getSVOPosition();
 
         frameNew = false;
         sl::RuntimeParameters runtime_parameters;
         runtime_parameters.sensing_mode = sl::SENSING_MODE_FILL; // Use STANDARD sensing mode
         runtime_parameters.enable_depth = depth;
-        sl::Camera::setSVOPosition(0);
 
         if (sl::Camera::grab(runtime_parameters) == sl::SUCCESS) {
 
@@ -500,12 +493,10 @@ namespace ofxZED {
 
             int w = getWidth();
             int h = getHeight();
-            uint64_t timestamp =  sl::Camera::getCameraTimestamp() ;
-            ofLog() << "grabbing..." << sl::Camera::getSVOPosition() << humanTimestamp(timestamp);
 
-            if (sl::Camera::getSVOPosition() == lastPosition) return;
+            if (sl::Camera::getSVOPosition() == lastPosition)  sl::Camera::getSVOPosition();
 
-            ofLog() << "retrieving..." << w << h;
+//            ofLog() << "retrieving..." << w << h;
 
             if (left) sl::Camera::retrieveImage(leftMat, sl::VIEW_LEFT, sl::MEM_CPU, w,h);
             if (right) sl::Camera::retrieveImage(rightMat, sl::VIEW_RIGHT, sl::MEM_CPU, w,h);
@@ -527,9 +518,30 @@ namespace ofxZED {
 
             ofLog() << "Did not grab";
         }
-    }
-    void Database::init(string location, string fileName) {
 
+        return sl::Camera::getSVOPosition();
+    }
+
+
+
+
+
+
+
+
+
+    /*-- Databse --*/
+
+
+
+
+
+
+
+
+    void Database::init(string location, bool recreate, string fileName) {
+
+        isCreatingBins = recreate;
         dir.allowExt("svo");
         dir.open(location);
         dir.listDir();
@@ -544,24 +556,73 @@ namespace ofxZED {
 
         for (auto f : dir.getFiles()) process(f);
 
-        ofSort(data, sortSVO);
+        ofSort(data, SVO::sortSVO);
         write();
-        ofLogNotice("ofxZED::Database") << "finished! total frames" << totalFrames;
+        ofLogNotice("ofxZED::Database") << "finished initing database" << data.size() << "/" << totalFiles;
 
         zed.close();
     }
 
 
+    void Database::scrape(ofFile & f, vector<Frame> & frames, vector<int> & lookup) {
+
+        frames.clear();
+        lookup.clear();
+
+        zed.setSVOPosition(0);
+        int total = zed.getSVONumberOfFrames();
+
+        for (int i = 0; i < total; i++) {
+
+            float tt = ofGetElapsedTimef();
+            bool timeout = false;
+            while ( zed.grab() != sl::SUCCESS && !timeout )  {
+                if (ofGetElapsedTimef() > tt + 2) {
+                    ofLogError("ofxZED::Database") << "timout";
+                    timeout = true;
+                }
+                sl::sleep_ms(1);
+            }
+
+            if (!timeout) {
+
+                uint64_t timestamp = zed.getFrameTimestamp();
+                int frameIdx = zed.getSVOPosition()-1;
+                int fps = zed.getCameraFPS();
+
+                if (frameIdx != i) {
+                    ofLogError("ofxZED::Database") << "something went wrong:" << frameIdx << "does not equal" << i;
+                }
+               frames.push_back( Frame(frameIdx, timestamp) );
+               int repetitions = 0;
+               if (i > 0) {
+                   int millis = ofxZED::SVO::getDurationMillis(frames[i-1].timestamp, timestamp);
+                   int fpsMillis = 1000/fps;
+                   int effectiveFps = 1000/millis;
+                   repetitions =  millis/fpsMillis;
+                   for (auto _ = repetitions; _--;) lookup.push_back(i);
+               }
+
+               bool printProgress = false;
+
+               if (printProgress) {
+                string actualStr = ofToString(i)+"/"+ofToString(total);
+                std::cout.flush();
+                std::cout << "... lookup table: "+ofToString(lookup.size())+" "+actualStr+"";
+                std::cout.flush();
+               }
+            }
+        }
+
+
+    }
+
     void Database::process(ofFile & f) {
 
 
-        if (json["files"].find(f.getFileName()) != json["files"].end()) {
-
-            ofLogNotice("ofxZED::Database") << "moving to next item, already in JSON" << currIndex << "of" << dir.getFiles().size();
-
+        if (json["files"].find(f.getFileName()) != json["files"].end() && !isCreatingBins) {
 
             SVO svo;
-
             svo.init(json["files"][f.getFileName()]);
             data.push_back(svo);
 
@@ -573,99 +634,68 @@ namespace ofxZED {
 
             if (zed.openSVO(f.getAbsolutePath())) {
 
-                /* get start time */
-
-                ofLogNotice("ofxZED::Database") << "waiting for start time";
-                zed.setSVOPosition(0);
-                while ( zed.grab() != sl::SUCCESS )  sl::sleep_ms(1);
-
-                sl::timeStamp startTime = zed.getFrameTimestamp();
-
-                /* get end time */
-
-                ofLogNotice("ofxZED::Database") << "waiting for end time";
-                zed.setSVOPosition( zed.getSVONumberOfFrames() - 2 );
-                while ( zed.grab() != sl::SUCCESS )  sl::sleep_ms(1);
-
-                sl::timeStamp endTime = zed.getFrameTimestamp();
-
-
-
                 SVO svo;
-                svo.init(f.getFileName(), zed.getCameraFPS(), ofVec2f( zed.getWidth(), zed.getHeight() ), zed.getSVONumberOfFrames(), startTime, endTime );
+                scrape(f, svo.frames, svo.lookup);
+                svo.init(f, zed.getCameraFPS());
+                svo.printInfo();
                 data.push_back(svo);
+                totalFrames += svo.getTotalFrames();
 
 
             } else {
                 ofLogError("ofxZED::Database") << "could not open" << f.getAbsolutePath();
                 OF_EXIT_APP(0);
             }
+            write();
         }
+
+        ofLogNotice("ofxZED::Database") << "loading" << currIndex << "/" << dir.getFiles().size();
+
         currIndex += 1;
 
-
-        SVO & svo = data.back();
-
-
-
-        int backwards = 2;
-
-        if (svo.endTime <= svo.startTime) {
-
-            ofLogNotice("ofxZED::Database") << "attempting to fix broken end time" << svo.filename << svo.startTime << svo.endTime;
-
-            if (zed.openSVO(f.getAbsolutePath())) {
-
-                while (svo.endTime <= svo.startTime) {
-
-                    ofLogNotice("zedinfo") << "fixing broken end time" << svo.startTime << svo.endTime << backwards;
-                    zed.setSVOPosition( zed.getSVONumberOfFrames() - backwards );
-                    while ( zed.grab() != sl::SUCCESS )  sl::sleep_ms(1);
-                    svo.endTime = zed.getFrameTimestamp();
-
-                }
-
-                ofLogNotice("ofxZED::Database") << "fixed end and start to" << svo.startTime << svo.endTime;
-            }
-        }
-
-        ofLogNotice("ofxZED::Database") << "\n" << svo.getDescriptionStr();
-
-        totalFrames += svo.totalFrames;
-        write();
 
     }
     void Database::write() {
 
 
-        string csv = "Filename,FPS,Resolution,Start,Start Date,End,End Date,Duration (mins),Average FPS,Total Frames, Predicted Frames\n";
+        float ts = ofGetElapsedTimef();
 
-        json["info"]["totalFrames"] = totalFrames;
-        json["info"]["progress"] = ofToString(currIndex) + " out of " + ofToString(totalFiles);
-        json["info"]["totalDuration"] = getDurationInHuman(60, totalFrames);
+        string csv = "Filename,FPS,Timestamps,Lookup\n";
 
-        ofSort(data, sortSVO);
+
+        ofSort(data, SVO::sortSVO);
         for ( auto & d : data) {
             json["files"][d.filename] = d.getJson();
             csv += d.getCSV();
         }
 
-        ofLogNotice("ofxZED::Database") << "moving to" << json["info"]["progress"];
-
         ofBuffer buff;
         buff.set(csv.c_str(), csv.size());
-        ofSavePrettyJson(saveLocation + ".json" , json);
+        ofSaveJson(saveLocation + ".json" , json);
         ofBufferToFile(saveLocation + ".csv", buff);
+
+        ofLogNotice("ofxZED::Database") << "writing db took" << ofGetElapsedTimef() - ts << "seconds";
+
     }
 
-    std::map<string, vector<SVO *>> Database::getSortedByDay() {
+    std::map<string, vector<SVO *>> Database::getSortedByDay(vector<SVO *> svos) {
         std::map<string, vector<SVO *>> db;
-        for (auto & d : data) {
-            string date = humanTimestamp(d.startTime, "%A %d %b");
+        for (auto & d : svos) {
+            string date = SVO::getHumanTimestamp(d->getStart(), "%A %d %b");
             if (db.find(date) == db.end()) db[date] = {};
-            db[date].push_back(&d);
+            db[date].push_back(d);
         }
-        for (auto & d : db) ofSort(d.second, sortSVOPtrs);
+        for (auto & d : db) ofSort(d.second, SVO::sortSVOPtrs);
+        return db;
+    }
+    std::map<string, vector<SVO *>> Database::getSortedBySerialNumber(vector<SVO *> svos) {
+        std::map<string, vector<SVO *>> db;
+        for (auto & d : svos) {
+            string serial = d->filename.substr(0, d->filename.find("_"));
+            if (db.find(serial) == db.end()) db[serial] = {};
+            db[serial].push_back(d);
+        }
+        for (auto & d : db) ofSort(d.second, SVO::sortSVOPtrs);
         return db;
     }
     vector<SVO *> Database::getPtrs() {
@@ -674,11 +704,22 @@ namespace ofxZED {
         return db;
     }
 
-    vector<SVO *> Database::getPtrsInsideTimestamp(int time) {
+    vector<SVO *> Database::getPtrsInsideTimestamp(uint64_t time) {
         vector<SVO *> db;
-        int DIV = 1000000000;
-        for (auto & d : data) if (time >= d.startTime/DIV && time < d.endTime/DIV ) db.push_back(&d);
+//        int DIV = 1000000000;
+        for (auto & d : data) if (time >= d.getStart() && time < d.getEnd() ) db.push_back(&d);
         return db;
     }
+
+    bool SVO::sortSVO(ofxZED::SVO & a, ofxZED::SVO & b) {
+       return ((a.getStart()) < (b.getStart()));
+    }
+
+    bool SVO::sortSVOPtrs(ofxZED::SVO * a, ofxZED::SVO * b)
+    {
+       return ((a->getStart()) < (b->getStart()) );
+    }
+
+
 
 }
