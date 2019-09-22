@@ -1,4 +1,4 @@
-#include "ofxZED.h"
+#include "ofxZEDPlayer.h"
 
 /* 
 

@@ -1,7 +1,8 @@
 #pragma once
 
 #include "ofMain.h"
-#include <sl/Camera.hpp>
+#include "ofxZEDCamera.h";
+#include "ofxZEDSVO.h";
 
 /* 
 

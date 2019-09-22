@@ -1,4 +1,4 @@
-#include "ofxZED.h"
+#include "ofxZEDDatabase.h"
 
 /* 
 
@@ -34,6 +34,7 @@ namespace ofxZED {
 
     void Database::init(string location, bool recreate, string fileName) {
 
+        ofLogNotice("ofxZED::Database") << "opening json database";
         isCreatingBins = recreate;
         dir.allowExt("svo");
         dir.open(location);
@@ -49,11 +50,11 @@ namespace ofxZED {
 
         for (auto f : dir.getFiles()) process(f);
 
-        ofSort(data, SVO::sortSVO);
-        write();
-        ofLogNotice("ofxZED::Database") << "finished initing database" << data.size() << "/" << totalFiles;
+        ofLogNotice("ofxZED::Database") << "finished initing database";
+        ofLogNotice("ofxZED::Database") << "sorting by date";
 
-        zed.close();
+        ofSort(data, SVO::sortSVO);
+        if (zed.isOpened()) zed.close();
     }
 
 
@@ -142,7 +143,7 @@ namespace ofxZED {
             write();
         }
 
-        ofLogNotice("ofxZED::Database") << "loading" << currIndex << "/" << dir.getFiles().size();
+        ofLogNotice("ofxZED::Database") << "loading" << currIndex+1 << "/" << dir.getFiles().size();
 
         currIndex += 1;
 
@@ -168,6 +169,32 @@ namespace ofxZED {
         ofBufferToFile(saveLocation + ".csv", buff);
 
         ofLogNotice("ofxZED::Database") << "writing db took" << ofGetElapsedTimef() - ts << "seconds";
+
+    }
+
+
+    vector<SVO *> Database::getFilteredByRange( uint64_t start, uint64_t end) {
+
+        if (data.size() <= 0) {
+            ofLogError("ofxZED::Database") << "database is not loaded or is empty";
+        }
+
+        typedef std::chrono::system_clock::time_point time_point;
+
+        time_point tps = ofxZED::SVO::getTimePoint(start);
+        time_point tpe = ofxZED::SVO::getTimePoint(end);
+
+        vector<SVO *> db;
+        for (auto & d : data) {
+
+            time_point tpstart = ofxZED::SVO::getTimePoint(d.getStart());
+            time_point tpend = ofxZED::SVO::getTimePoint(d.getEnd());
+
+            bool hasStart = (tps > tpstart  && tps < tpend);
+            bool hasEnd = (tpe > tpstart && tpe < tpend);
+            if (hasStart || hasEnd) db.push_back(&d);
+        }
+        return db;
 
     }
 

@@ -1,7 +1,20 @@
 #pragma once
 
 #include "ofMain.h"
-#include "ofxZED.h"
+#include "ofxZEDSVO.h"
+#include "ofxZEDDatabase.h"
+
+struct Range {
+public:
+    string name;
+    string start;
+    string end;
+    Range(string name_, string start_, string end_) {
+        name = name_;
+        start = start_;
+        end = end_;
+    }
+};
 
 class ofApp : public ofBaseApp{
 	public:
@@ -24,4 +37,6 @@ class ofApp : public ofBaseApp{
 
         vector<string> arguments;
         ofxZED::Database db;
+        vector<Range> ranges;
+        string print;
 };

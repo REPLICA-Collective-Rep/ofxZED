@@ -37,6 +37,13 @@ namespace ofxZED {
 
         /*-- time util --*/
 
+        /*-- convert timestamp to chrono time_point --*/
+
+        static std::chrono::system_clock::time_point getTimePoint( uint64_t timestamp );
+
+        /*-- get timestamp from string, default format as "21/06/2019 14:24:00" --*/
+        static uint64_t getTimestampFromStr(string date, string format = "%d/%m/%Y %H:%M:%S");
+
         /*-- increment seconds to a timestamp --*/
         static void incrementSeconds(uint64_t & timestamp, float seconds);
 

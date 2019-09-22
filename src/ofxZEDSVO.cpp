@@ -27,10 +27,41 @@ namespace ofxZED {
             ofLogError("ofxZED::SVO") << "no frames to get end time";
             return 0;
         }
+        if ( frames.back().timestamp < frames.front().timestamp ) {
+            ofLogError("ofxZED::SVO") << "end timestamp is incorrect";
+        }
         return frames.back().timestamp;
     }
     int SVO::getPredictedFrames() {
         return  ((float)(getDurationMillis(getStart(), getEnd())/1000.0) * (float)fps);
+    }
+
+    std::chrono::system_clock::time_point SVO::getTimePoint( uint64_t timestamp ) {
+
+        typedef std::chrono::milliseconds milliseconds;
+        typedef std::chrono::system_clock::time_point time_point;
+        typedef std::chrono::system_clock::time_point::duration duration;
+        typedef std::chrono::nanoseconds nano_seconds;
+        time_point tp{std::chrono::duration_cast<duration>(nano_seconds(timestamp))};
+        return tp;
+    }
+
+    /*-- get timestamp from string, default format as "21/06/2019 14:24:00" --*/
+
+    uint64_t SVO::getTimestampFromStr(string date, string format) {
+
+        typedef std::chrono::system_clock::time_point time_point;
+        typedef std::chrono::nanoseconds nano_seconds;
+        typedef std::chrono::milliseconds milliseconds;
+        typedef std::chrono::microseconds microseconds;
+        typedef std::chrono::seconds seconds;
+
+        std::tm tm = {};
+        std::stringstream ss(date);
+        ss >> std::get_time(&tm, format.c_str());
+        time_point tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
+        auto out = std::chrono::duration_cast<nano_seconds>(tp.time_since_epoch()).count();
+        return out;
     }
 
     /*-- increment seconds to a timestamp --*/
@@ -79,7 +110,7 @@ namespace ofxZED {
     float SVO::mapFromTimestamp(uint64_t timestamp, uint64_t start, uint64_t end, float from, float to, bool constrain) {
         int value = getDurationMillis(start, timestamp);
         int range = getDurationMillis(start, end);
-        return ofMap(value, 0, range, from, to, constrain);)
+        return ofMap(value, 0, range, from, to, constrain);
     }
 
     /*-- returns human-readable duration between two timestamps --*/

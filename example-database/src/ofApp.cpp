@@ -1,5 +1,6 @@
 #include "ofApp.h"
 
+
 //--------------------------------------------------------------
 void ofApp::setup(){
 
@@ -9,19 +10,49 @@ void ofApp::setup(){
 
     string currentRoot = "/home/autr/Desktop/bin/03_ZED";
     if (arguments.size() <= 1) {
-        ofLogError() << "No arguments are set, set arguments with --args /path/to/directory";
-        ofLogNotice() << "Defaulting to" << currentRoot;
+        ofLogError() << "no arguments are set, set arguments with --args /path/to/directory";
+        ofLogNotice() << "defaulting to" << currentRoot;
     } else {
         currentRoot = arguments[1];
     }
 
-    /*-- scan the folder for SVOs and create database entries into database.json --*/
+    /*-- Database Initialisation
+     * scan the folder for SVOs then;
+        * a) if an entry isn't present in database.json, create one
+        * b) if an entry is available in database.json, load it
+     * an unpopulated database might take some time as it scans all frames for their timestamps
+     * the database.json is loaded as vector<ofxZED::SVO> data  --*/
 
     db.init(currentRoot);
 
-    /*-- database.json is loaded into ofxZED::Database::data, as vector<ofxZED::SVO>  --*/
+    /*-- search for these time ranges --*/
 
+    ranges.push_back( Range("Chairs w. Ditte", "14/08/2019 11:24:00", "14/08/2019 11:28:10") );
+    ranges.push_back( Range("Shadowing w. Matej", "12/08/2019 16:47:00", "12/08/2019 16:50:00") );
+    ranges.push_back( Range("Jungle Run w. Ditte", "14/08/2019 10:59:00", "14/08/2019 11:04:00") );
+    ranges.push_back( Range("Stretching in Line w. Matej", "14/08/2019 15:33:52", "14/08/2019 15:52:37") );
 
+    print = "";
+
+    for (auto & range : ranges) {
+        print += range.name + "\n";
+        print += range.start + "\n";
+        print += range.end + "\n";
+
+        /*-- convert time string into timestamps --*/
+
+        uint64_t start = ofxZED::SVO::getTimestampFromStr( range.start );
+        uint64_t end = ofxZED::SVO::getTimestampFromStr( range.end );
+
+        /*-- find SVOs filtered by start and end time --*/
+
+        vector<ofxZED::SVO *> svos = db.getFilteredByRange( start, end );
+        for (auto & svo : svos) print += svo->filename + "\n";
+        print += "\n";
+
+    }
+
+    ofLog() << print;
 }
 
 //--------------------------------------------------------------
@@ -32,6 +63,9 @@ void ofApp::update(){
 //--------------------------------------------------------------
 void ofApp::draw(){
 
+    ofBackground(20);
+    ofSetColor(255);
+    ofDrawBitmapString( print , 20, 20 );
 }
 
 //--------------------------------------------------------------
