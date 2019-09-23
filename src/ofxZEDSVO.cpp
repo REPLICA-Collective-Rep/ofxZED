@@ -170,6 +170,8 @@ namespace ofxZED {
         string info = "\n";
         info += "File: " + filename;
         info += "\n";
+        info += "Path: " + path;
+        info += "\n";
         info += "FPS: " + ofToString( fps );
         info += "\n";
         info += "Start time: " + getHumanTimestamp(getStart());
@@ -199,22 +201,43 @@ namespace ofxZED {
         string info = "";
         info += filename;
         info += ",";
+        info += path;
+        info += ",";
         info += ofToString( fps );
-        info += ',';
-        for (int i = 0; i < frames.size(); i++) info += ofToString(frames[i].timestamp) + " ";
-        info += ',';
-        for (int i = 0; i < lookup.size(); i++) info += ofToString(lookup[i]) + " ";
+//        info += ',';
+//        for (int i = 0; i < frames.size(); i++) info += ofToString(frames[i].timestamp) + " ";
+//        info += ',';
+//        for (int i = 0; i < lookup.size(); i++) info += ofToString(lookup[i]) + " ";
         info += '\n';
 
         return info;
     }
 
-    ofJson SVO::getJson() {
+    string SVO::getName() {
+        return filename.substr(0, path.size() - 4);
+    }
+    string SVO::getLookupPath() {
+         return path.substr(0, path.size() - 4) + ".lookup";
+    }
+    string SVO::getPosesPath() {
+         return path.substr(0, path.size() - 4) + ".poses";
+    }
+    string SVO::getSVOPath() {
+         return path;
+    }
+
+    ofJson SVO::getJson(bool withTables) {
         ofJson j;
         j["filename"] = filename;
+        j["path"] = path;
         j["fps"] = fps;
-        for (int i = 0; i < frames.size(); i++) j["timestamps"][i] = frames[i].timestamp;
-        for (int i = 0; i < lookup.size(); i++) j["lookup"][i] = lookup[i];
+        if (withTables) {
+            for (int i = 0; i < frames.size(); i++) j["timestamps"][i] = frames[i].timestamp;
+            for (int i = 0; i < lookup.size(); i++) j["lookup"][i] = lookup[i];
+        } else {
+            j["timestamps"][0] = frames[0].timestamp;
+            j["timestamps"][1] = frames[frames.size()-1].timestamp;
+        }
         return j;
     }
     void SVO::init( ofJson j ) {
@@ -222,6 +245,7 @@ namespace ofxZED {
         frames.clear();
         lookup.clear();
         filename = j["filename"].get<string>();
+        path = j["path"].get<string>();
         fps = j["fps"].get<int>();
         for (int i = 0; i < j["timestamps"].size(); i++) frames.push_back( Frame(i, j["timestamps"][i].get<uint64_t>()));
         for (int i = 0; i < j["lookup"].size(); i++) lookup.push_back( j["lookup"][i].get<int>() );

@@ -30,29 +30,36 @@ namespace ofxZED {
 
     /*-- Databse --*/
 
-    void Database::load(string databaseLocation, string databaseName) {
+    void Database::load(string databaseLocation, string databaseName, bool withLookup) {
 
-        ofLogNotice("ofxZED::Database") << "loading json database";
         string loadPath = ofFilePath::join(databaseLocation, databaseName);
-        json = ofLoadJson( databaseLocation + ".json");
+        ofLogNotice("ofxZED::Database") << "loading json database" << loadPath;
+        json = ofLoadJson( loadPath + ".json");
         isForcingRecreate = false;
-        finish();
-    }
 
-    void Database::finish() {
+        dir.allowExt("svo");
+        dir.open(databaseLocation);
+        dir.listDir();
 
+        ofLogNotice("ofxZED::Database") << "loading database";
+        for (auto f : dir.getFiles()) {
+            process(f, withLookup);
+        }
 
-        for (auto f : dir.getFiles()) process(f);
-
-        ofLogNotice("ofxZED::Database") << "finished initing database";
+        ofLogNotice("ofxZED::Database") << "finished initing database" << data.size();
         ofLogNotice("ofxZED::Database") << "sorting by date";
 
         ofSort(data, SVO::sortSVO);
         if (zed.isOpened()) zed.close();
     }
 
+    void Database::finish() {
 
-    void Database::build(string location, bool forceRecreate, string fileName) {
+
+    }
+
+
+    void Database::build(string location, string fileName, bool withLookup, bool forceRecreate) {
 
         ofLogNotice("ofxZED::Database") << "opening json database";
         isForcingRecreate = forceRecreate;
@@ -68,7 +75,16 @@ namespace ofxZED {
         databaseName = fileName;
         string loadPath = ofFilePath::join(directoryPath, databaseName);
         json = ofLoadJson(loadPath + ".json");
-        finish();
+
+        ofLogNotice("ofxZED::Database") << "initing database";
+        for (auto f : dir.getFiles()) process(f, withLookup);
+
+        ofLogNotice("ofxZED::Database") << "finished initing database" << data.size();
+        ofLogNotice("ofxZED::Database") << "sorting by date";
+
+        ofSort(data, SVO::sortSVO);
+        if (zed.isOpened()) zed.close();
+        write(directoryPath, databaseName);
 
     }
 
@@ -77,6 +93,8 @@ namespace ofxZED {
 
         frames.clear();
         lookup.clear();
+
+        ofLogNotice("ofxZED::Database") << "beginning scrape";
 
         zed.setSVOPosition(0);
         int total = zed.getSVONumberOfFrames();
@@ -97,7 +115,7 @@ namespace ofxZED {
 
                 uint64_t timestamp = zed.getFrameTimestamp();
                 int frameIdx = zed.getSVOPosition()-1;
-                int fps = zed.getCameraFPS();
+                float fps = zed.getCameraFPS();
 
                 if (frameIdx != i) {
                     ofLogError("ofxZED::Database") << "something went wrong:" << frameIdx << "does not equal" << i;
@@ -105,10 +123,10 @@ namespace ofxZED {
                frames.push_back( Frame(frameIdx, timestamp) );
                int repetitions = 0;
                if (i > 0) {
-                   int millis = ofxZED::SVO::getDurationMillis(frames[i-1].timestamp, timestamp);
-                   int fpsMillis = 1000/fps;
-                   int effectiveFps = 1000/millis;
-                   repetitions =  millis/fpsMillis;
+                   float millis = ofxZED::SVO::getDurationMillis(frames[i-1].timestamp, timestamp);
+                   float fpsMillis = 1000.0/fps;
+                   float effectiveFps = 1000.0/millis;
+                   repetitions =  round(millis/fpsMillis);
                    for (auto _ = repetitions; _--;) lookup.push_back(i);
                }
 
@@ -126,7 +144,9 @@ namespace ofxZED {
 
     }
 
-    void Database::process(ofFile & f) {
+    void Database::process(ofFile & f, bool withLookup) {
+
+        bool recreateLookups = false;
 
 
         if (json["files"].find(f.getFileName()) != json["files"].end() && !isForcingRecreate) {
@@ -134,11 +154,32 @@ namespace ofxZED {
             SVO svo;
             svo.init(json["files"][f.getFileName()]);
             data.push_back(svo);
+            string lookupPath = data.back().getLookupPath();
+            ofFile file(lookupPath);
+            bool hasLookup = file.exists();
+            if (!hasLookup) {
+
+                ofLogNotice("ofxZED::Database") << "lookup table not found, creating new..." << svo.getLookupPath();
+                recreateLookups = true;
+                if (zed.openSVO(f.getAbsolutePath())) {
+                    scrape(f, data.back().frames, data.back().lookup);
+                } else {
+                    ofLogError("ofxZED::Database") << "could not open" << f.getAbsolutePath();
+                    OF_EXIT_APP(0);
+                }
+            } else {
+
+                ofLogNotice("ofxZED::Database") << "loading lookup table" << svo.getLookupPath();
+                ofJson j = ofLoadJson(data.back().getLookupPath());
+                data.back().init(j);
+                ofLogNotice("ofxZED::Database") << "frames:" << data.back().frames.size() << "lookup:" << data.back().lookup.size();
+            }
+
 
         } else {
 
 
-           ofLogNotice("ofxZED::Database") << "opening svo";
+           ofLogNotice("ofxZED::Database") << "creating database entry from scratch";
 
 
             if (zed.openSVO(f.getAbsolutePath())) {
@@ -149,17 +190,21 @@ namespace ofxZED {
                 svo.printInfo();
                 data.push_back(svo);
                 totalFrames += svo.getTotalFrames();
-
+                recreateLookups = true;
 
             } else {
                 ofLogError("ofxZED::Database") << "could not open" << f.getAbsolutePath();
                 OF_EXIT_APP(0);
             }
+
+
             write(directoryPath, databaseName);
         }
 
-        ofLogNotice("ofxZED::Database") << "loading" << currIndex+1 << "/" << dir.getFiles().size();
-
+        if (recreateLookups) {
+            ofJson lookupJson = data.back().getJson(true);
+            ofSaveJson(data.back().getLookupPath(), lookupJson);
+        }
         currIndex += 1;
 
 
@@ -169,12 +214,12 @@ namespace ofxZED {
 
         float ts = ofGetElapsedTimef();
 
-        string csv = "Filename,FPS,Timestamps,Lookup\n";
+        string csv = "Filename,Path,FPS,Timestamps,Lookup\n";
 
 
         ofSort(data, SVO::sortSVO);
         for ( auto & d : data) {
-            json["files"][d.filename] = d.getJson();
+            json["files"][d.filename] = d.getJson(false);
             csv += d.getCSV();
         }
 
@@ -184,7 +229,7 @@ namespace ofxZED {
         ofSaveJson(savePath + ".json" , json);
         ofBufferToFile(savePath + ".csv", buff);
 
-        ofLogNotice("ofxZED::Database") << "writing db took" << ofGetElapsedTimef() - ts << "seconds";
+        ofLogNotice("ofxZED::Database") << "writing db took" << ofGetElapsedTimef() - ts << "seconds to" << savePath;
 
     }
 
@@ -196,25 +241,27 @@ namespace ofxZED {
         }
 
         typedef std::chrono::system_clock::time_point time_point;
+        typedef ofxZED::SVO S;
 
-        time_point tps = ofxZED::SVO::getTimePoint(start);
-        time_point tpe = ofxZED::SVO::getTimePoint(end);
+        time_point tps = S::getTimePoint(start);
+        time_point tpe = S::getTimePoint(end);
         string format = "%H:%M";
         vector<SVO *> db;
+        ofLog() << "START" << S::getHumanTimestamp(start);
+        ofLog() << "END" << S::getHumanTimestamp(end);
         for (auto & d : data) {
 
-            time_point tpstart = ofxZED::SVO::getTimePoint(d.getStart());
-            time_point tpend = ofxZED::SVO::getTimePoint(d.getEnd());
+            time_point tpstart = S::getTimePoint(d.getStart());
+            time_point tpend = S::getTimePoint(d.getEnd());
 
-//            bool hasStart = (tps >= tpstart  && tps <= tpend);
-//            bool hasEnd = (tpe >= tpstart && tpe < tpend);
-            bool hasStart = (start >= d.getStart()  && start <= d.getEnd());
-            bool hasEnd = (end >= d.getStart() && end < d.getEnd());
-            if (hasStart || hasEnd) {
-                if (hasStart) ofLog() << "HAS START" << ofxZED::SVO::getHumanTimestamp(start, format) <<  ofxZED::SVO::getHumanTimestamp(d.getStart(), format);
-                if (hasEnd) ofLog() << "HAS END" << ofxZED::SVO::getHumanTimestamp(end, format) <<  ofxZED::SVO::getHumanTimestamp(d.getEnd(), format);
+            ofLog() << "> START" << S::getHumanTimestamp(d.getStart());
+            ofLog() << "> END" << S::getHumanTimestamp(d.getEnd());
+
+            bool hasStartIn = (d.getStart() >= start  && d.getStart() <= end);
+            bool hasEndIn = (d.getEnd() >= start && d.getEnd() <= end);
+            bool hasWrapped = (d.getStart() < start  && d.getEnd() > end);
+            if (hasStartIn || hasEndIn || hasWrapped) {
                 db.push_back(&d);
-                ofLog() << "ADDING" << d.filename;
             }
         }
         return db;
@@ -244,6 +291,7 @@ namespace ofxZED {
     vector<SVO *> Database::getPtrs() {
         vector<SVO *> db;
         for (auto & d : data) db.push_back(&d);
+        ofSort(db, ofxZED::SVO::sortSVOPtrs);
         return db;
     }
 

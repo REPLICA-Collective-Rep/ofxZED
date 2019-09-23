@@ -37,6 +37,44 @@ void ofxZED::Camera::logSerial() {
     ofLogNotice( "ofxZED") << sl::Camera::getCameraInformation().serial_number << ((sl::Camera::isOpened()) ? "is Open" : "is Closed");
 }
 
+void ofxZED::Camera::processViewAndDepth(sl::Mat & matL, sl::Mat & matD, ofPixels & pixL, ofPixels & pixD) {
+
+
+
+    int w = getWidth();
+    int h = getHeight();
+    mesh.clear();
+    mesh.setMode(OF_PRIMITIVE_POINTS);
+
+    if (pixL.getWidth() != w || pixL.getHeight() != h || !pixL.isAllocated()) {
+        pixL.allocate(w, h, 4);
+        pixD.allocate(w, h, 4);
+    }
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            sl::uchar4  pL, pD;
+            matL.getValue<sl::uchar4 >(x, y, &pL);
+            matD.getValue<sl::uchar4 >(x, y, &pD);
+            int index = 3 * (x + y * w);
+            pixL[index + 0] = pL.b;
+            pixL[index + 1] = pL.g;
+            pixL[index + 2] = pL.r;
+            pixL[index + 3] = pL.a;
+
+            pixD[index + 0] = pD.b;
+            pixD[index + 1] = pD.g;
+            pixD[index + 2] = pD.r;
+            pixD[index + 3] = pD.a;
+
+//            ofLog() << pD.a << pD.b;
+
+            mesh.addColor( ofColor( pixL[index + 0], pixL[index + 1], pixL[index + 2], pixL[index + 3] ) );
+            mesh.addVertex( ofVec3f( x, y, pD.a ) );
+
+        }
+    }
+}
+
 void ofxZED::Camera::processMatToPix(ofPixels & pix, sl::Mat & mat, bool psychedelic) {
     int w = mat.getWidth();
     int h = mat.getHeight();
@@ -223,10 +261,6 @@ bool ofxZED::Camera::openWithParams() {
 
             int w = getWidth();
             int h = getHeight();
-
-
-//            colorTexture.allocate(w, h, GL_RGBA, false);
-//            depthTexture.allocate(w, h, GL_RGBA, false);
             success = true;
         }
 
@@ -274,7 +308,7 @@ void ofxZED::Camera::draw(ofRectangle r, bool left, bool right, bool depth) {
     if (leftTex.isAllocated() && !rightTex.isAllocated() && left && !right) leftTex.draw(r);
     if (!leftTex.isAllocated() && rightTex.isAllocated() && !left && right) rightTex.draw(r);
     ofEnableBlendMode(OF_BLENDMODE_SCREEN);
-    if (depthTex.isAllocated() && depth) depthTex.draw(r);
+//    if (depthTex.isAllocated() && depth) depthTex.draw(r);
     ofEnableBlendMode(OF_BLENDMODE_ALPHA);
 }
 

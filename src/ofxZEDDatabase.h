@@ -19,7 +19,7 @@ namespace ofxZED {
 
         void finish();
         void scrape(ofFile & f, vector<Frame> & frames, vector<int> & lookup);
-        void process(ofFile & f);
+        void process(ofFile & f, bool withLookup);
     public:
 
         bool isForcingRecreate;
@@ -30,8 +30,8 @@ namespace ofxZED {
         string csv;
         Database() { };
 
-        void build(string location, bool forceRecreate = false, string fileName = "_database");
-        void load(string databaseLocation, string databaseName);
+        void build(string location, string fileName = "_database", bool withLookup = false, bool forceRecreate = false);
+        void load(string databaseLocation, string databaseName, bool withLookup);
         void write(string dirPath, string dbName);
 
         vector<SVO *> getFilteredByRange( uint64_t start, uint64_t end);

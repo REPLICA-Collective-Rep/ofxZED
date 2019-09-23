@@ -54,13 +54,13 @@ namespace ofxZED {
         static uint64_t mapToTimestamp(float value, float from, float to, uint64_t start, uint64_t end, bool constrain = false);
 
         /*-- maps a timestamp into a float range --*/
-        float mapFromTimestamp(uint64_t timestamp, uint64_t start, uint64_t end, float from, float to, bool constrain);
+        static float mapFromTimestamp(uint64_t timestamp, uint64_t start, uint64_t end, float from, float to, bool constrain);
 
         /*-- returns human-readable duration between two timestamps --*/
         static string getHumanDuration(uint64_t start, uint64_t end, string format = "%H-%M-%S-%.");
 
         /*-- formats timestamp into a human-readable string --*/
-        static string getHumanTimestamp(uint64_t timestamp, string format = "%Y-%m-%d_%H-%M-%S-%.");
+        static string getHumanTimestamp(uint64_t timestamp, string format = "%Y/%m/%d %H:%M:%S:%.");
 
 
         static bool sortSVO(SVO & a, SVO & b);
@@ -75,11 +75,15 @@ namespace ofxZED {
         float getAverageFPS();
         string getDroppedPercent();
         string printInfo();
+        string getLookupPath();
+        string getPosesPath();
+        string getSVOPath();
+        string getName();
 
         /*-- formats --*/
 
         string getCSV();
-        ofJson getJson();
+        ofJson getJson(bool withTables);
     };
 
 

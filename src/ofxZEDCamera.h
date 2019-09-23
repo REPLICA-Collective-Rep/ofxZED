@@ -41,9 +41,17 @@ namespace ofxZED {
         int lastPosition;
         float stereoOffset;
         bool stereoAlternate;
-        ofTexture leftTex, rightTex, depthTex;
-        ofPixels leftPix, rightPix, depthPix;
-        sl::Mat leftMat, rightMat, depthMat;
+
+
+        ofTexture leftTex, rightTex, depthTex, measureTex;
+        ofPixels leftPix, rightPix, depthPix, measurePix;
+        sl::Mat leftMat, rightMat, depthMat, measureMat;
+        vector<ofVec3f> pointCloud_;
+        vector<ofColor> pointCloudColors_;
+        vector<ofFloatColor> pointCloudFloatColors_;
+
+
+        ofMesh mesh;
         sl::InitParameters init;
         int frameCount = 0;
         bool isRecording = false;
@@ -56,6 +64,7 @@ namespace ofxZED {
         void logSerial();
 
         void processMatToPix(ofPixels & pix, sl::Mat & mat, bool psychedelic = false);
+        void processViewAndDepth(sl::Mat & matL, sl::Mat & matD, ofPixels & pixL, ofPixels & pixD);
 
 
         string getTimestamp(string format = "%Y-%m-%d_%H:%M:%S");

@@ -34,7 +34,6 @@ void ofApp::setup(){
 
     print = "";
 
-    ofxZED::Database newDb;
     string newDbPath = ofFilePath::join(currentRoot, "/_presentation/");
 
     for (auto & range : ranges) {
@@ -52,12 +51,11 @@ void ofApp::setup(){
         vector<ofxZED::SVO *> svos = db.getFilteredByRange( start, end );
         for (auto & svo : svos) {
             print += svo->filename + "\n";
-            ofFile file( ofFilePath::join(currentRoot, svo->filename) );
+            ofFile svoFile( svo->path );
 
             /*-- copy SVOs to new folder and new database --*/
 
-            file.copyTo( ofFilePath::join(newDbPath, svo->filename));
-            newDb.data.push_back( *svo );
+            svoFile.copyTo( ofFilePath::join(newDbPath, svo->filename));
         }
         print += "\n";
 
@@ -65,7 +63,8 @@ void ofApp::setup(){
 
     /*-- save new Database for only SVOs in ranges --*/
 
-    newDb.write( newDbPath, "database" );
+    ofxZED::Database newDb;
+    newDb.build( newDbPath);
 
     ofLog() << print;
 }
