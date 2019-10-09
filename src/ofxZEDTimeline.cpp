@@ -1,35 +1,10 @@
 #include "ofxZEDTimeline.h"
 
-ofRectangle ofTextBounds(string text) {
-    vector<string> lines = ofSplitString(text, "\n");
-    int maxLineLength = 0;
-    for(int i = 0; i < (int)lines.size(); i++) {
-        // tabs are not rendered
-        const string & line(lines[i]);
-        int currentLineLength = 0;
-        for(int j = 0; j < (int)line.size(); j++) {
-            if (line[j] == '\t') {
-                currentLineLength += 8 - (currentLineLength % 8);
-            } else {
-                currentLineLength++;
-            }
-        }
-        maxLineLength = MAX(maxLineLength, currentLineLength);
-    }
 
-    int padding = 4;
-    int fontSize = 8;
-    float leading = 1.7;
-    int height = lines.size() * fontSize * leading - 1;
-    int width = maxLineLength * fontSize;
-    return ofRectangle(0,0,width, height);
-}
 namespace ofxZED {
 
     Timeline::Timeline() {
-        isStereoscopic = false;
         isPlaying = false;
-        isPsychedelic = false;
         grabOnce = false;
     }
 
@@ -64,25 +39,12 @@ namespace ofxZED {
     void Timeline::set(vector<SVO *> svos_, bool load) {
         svos = svos_;
         mapped.clear();
-        for (auto & s : svos) mapped[s->getSVOPath()] = s;
+        for (auto & s : svos) {
+            mapped[s->getSVOPath()] = s;
+        }
         ofSort(svos, ofxZED::SVO::sortSVOPtrs);
     }
-    void Timeline::draw() {
 
-
-
-    }
-
-    void Timeline::update() {
-
-        for (auto & p : players) {
-
-            if (isPlaying || grabOnce) {
-                p.second->grab(true, isStereoscopic, isPsychedelic);
-            }
-        }
-        if (grabOnce) grabOnce = false;
-    }
 
     bool Timeline::doesIntersect(ofRectangle & rect, vector<ofRectangle> & rects) {
         bool b = false;
@@ -135,16 +97,28 @@ namespace ofxZED {
         ofPopMatrix();
 
         ofSetColor(255);
-        ofDrawBitmapString( startStr, 10, 20 );
-        ofDrawBitmapString( endStr, w - ofTextBounds(endStr).width - 10, 20 );
+
+
+        drawString( startStr, 10, 20 );
+        drawString( endStr, w - getStringWidth(endStr,0,0) - 10, 20 );
 
 
         ofPopMatrix();
     }
+
+    int Timeline::getStringWidth(string txt, int x, int y) {
+
+        return theme->font.ptr.get()->width(txt, x, y);
+    }
+    void Timeline::drawString(string txt, int x, int y) {
+        theme->font.ptr.get()->draw(txt, x, y);
+    }
     uint64_t Timeline::getStart() {
+        if (svos.size() <=0) return 0;
         return svos.front()->getStart();
     }
     uint64_t Timeline::getEnd() {
+        if (svos.size() <=0) return 0;
         return svos.back()->getEnd();
     }
 
@@ -152,6 +126,8 @@ namespace ofxZED {
 
 
         timelineRect = bounds;
+
+
         int x = bounds.x;
         int y = bounds.y;
         int w = bounds.width;
@@ -159,28 +135,46 @@ namespace ofxZED {
 
         ofPushMatrix();
         ofTranslate(x,y);
-        int xx = ofxZED::SVO::mapFromTimestamp(currentTime, getStart(), getEnd(), 0, w, true);
-        ofSetLineWidth(2);
-        ofNoFill();
-        ofSetColor(255,0,255);
-        ofRectangle r( xx - 2, 0, 4, h );
-        ofFill();
-        ofDrawRectangle(r);
 
+
+        ofFill();
+
+        for (int i = 0; i < 100; i++) {
+            float xx = ((float)(w-10)/99.0)*(float)i;
+            ofSetColor(80);
+            ofDrawRectangle( xx + 5, 5, 0.5, h-10 );
+        }
+
+        vector<int> playheads = {};
         if (players.size() > 0) {
+            for (auto & player : players) {
+                ofxZED::SVO * svo = mapped[player.first];
+                ofxZED::Player * p = player.second;
+                if (p->left || p->right || p->depth || p->cloud) {
+                    uint64_t t = svo->frames[player.second->getSVOPosition()].timestamp;
+                    float xx = ofxZED::SVO::mapFromTimestamp(t, getStart(), getEnd(), 0, w, true );
+                    playheads.push_back((int)xx);
+                }
+            }
+
+            ofSetColor(120);
+            int xx =  ofxZED::SVO::mapFromTimestamp(currentTime, getStart(), getEnd(), 0, w, true);
+            ofRectangle r( xx - 3, 5, 6, h - 10 );
+            ofDrawRectangle(r);
+        }
+
+
+        if (playheads.size() > 0) {
 
             int yy = 0;
-            int hh = h / players.size();
-            for (auto & p : players) {
-                ofxZED::SVO * svo = mapped[p.first];
-                uint64_t t = svo->frames[p.second->getSVOPosition()].timestamp;
+            int hh = h / playheads.size();
+            for (auto & xx : playheads) {
                 ofSetColor(255);
-                ofDrawBitmapString( ofxZED::SVO::getHumanTimestamp( t, "%H:%M:%S:%." ), xx + 10, yy + 20 );
-                int xx = ofxZED::SVO::mapFromTimestamp(t, getStart(), getEnd(), 0, w, true );
-                ofDrawRectangle( xx -1, yy + 2, 2, hh - 4 );
+                ofDrawRectangle( xx -1, yy + 10, 2, hh - 20 );
                 yy += hh;
             }
         }
+
 
         ofPopMatrix();
         ofSetColor(255);
@@ -206,48 +200,42 @@ namespace ofxZED {
         ofPopMatrix();
     }
 
-    void Timeline::drawPlayers(ofRectangle bounds) {
+    bool Timeline::update() {
 
-        int total = players.size();
-        if (svos.size() <= 0 || total <= 0) return;
-
-        int x = bounds.x;
-        int y = bounds.y;
-        int w = bounds.width;
-        int h = bounds.height;
-
-        ofPushMatrix();
-        ofTranslate(x,y);
-        float xx = 0;
-        float ww = w / total;
-        float hh = ( ww / 1280.0 ) * 720.0;
-        ofSetColor(255);
-        for (auto & p : players) {
-            ofRectangle r( xx, 0, ww, hh );
+        bool setViaPlayer = false;
 
 
-            if(p.second->leftTex.isAllocated()) p.second->leftTex.draw(r);
-            r.y += 100;
-            if(p.second->depthTex.isAllocated()) p.second->depthTex.draw(r);
-//            if(p.second->measureTex.isAllocated()) p.second->measureTex.draw(r);
+//        ofLog() << "grab video" << p->left << left;
+        if (isPlaying || grabOnce) {
+            uint64_t t = 0;
+            uint64_t total = 0;
+            if (players.size() > 0) {
+
+                for (auto & player : players) {
+                    ofxZED::Player * p = player.second;
+                    if (p->left || p->right || p->depth || p->cloud) {
+//                        ofLog() << "grabbing video";
+                        p->grab();
+                        setViaPlayer = true;
+                        ofxZED::SVO * svo = mapped[player.first];
+                        uint64_t t = svo->frames[p->getSVOPosition()].timestamp;
+                        total += t;
 
 
-//                glPointSize(3);
-//                ofPushMatrix();
-                // the projected points are 'upside down' and 'backwards'
-//                ofScale(1, -1, -1);
-//                ofTranslate(0, 0, -1000); // center the points a bit
-//                ofEnableDepthTest();
-//                p.second->mesh.drawVertices();
-//                ofDisableDepthTest();
-//                ofPopMatrix();
+                        currentTime = t;
+                    }
+                }
+            }
 
-
-            xx += ww;
+//            if (setViaPlayer) currentTime = total/players.size();
         }
-        ofPopMatrix();
-        ofSetColor(255);
 
+
+
+        if (grabOnce) grabOnce = false;
+
+        if (!setViaPlayer && isPlaying) return true;
+        return false;
     }
 
 
@@ -264,17 +252,22 @@ namespace ofxZED {
 
     void Timeline::setTimeFromXY(int x, int y) {
 
+
         currentTime = ofxZED::SVO::mapToTimestamp(x, timelineRect.getLeft(), timelineRect.getRight(), getStart(), getEnd(), true);
 
-        for (auto & p : players) {
-            ofxZED::Player * player = p.second;
-            ofxZED::SVO * svo = mapped[p.first];
+        for (auto & player : players) {
 
-            int lookupIdx = ofxZED::SVO::mapFromTimestamp(currentTime, svo->getStart(), svo->getEnd(), 0, svo->lookup.size(), true);
-            int frame = svo->lookup[lookupIdx];
-            player->setSVOPosition(frame);
+            ofxZED::Player * p = player.second;
 
-            if (!isPlaying) grabOnce = true;
+            if (p->left || p->right || p->depth || p->cloud) {
+                ofxZED::SVO * svo = mapped[player.first];
+                svo->checkForLookup();
+                int lookupIdx = ofxZED::SVO::mapFromTimestamp(currentTime, svo->getStart(), svo->getEnd(), 0, svo->getTotalLookupFrames(), true);
+                int frame = svo->getLookupIndex(lookupIdx);
+                p->setSVOPosition(frame);
+
+                if (!isPlaying) grabOnce = true;
+            }
         }
     }
 
@@ -317,7 +310,6 @@ namespace ofxZED {
     }
 
     void Timeline::nudge( int frames ) {
-        ofLog() << "NUDGE" << frames;
         for (auto & p : players) p.second->nudge(frames);
         if (!isPlaying) grabOnce = true;
     }

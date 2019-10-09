@@ -45,7 +45,7 @@ namespace ofxZED {
 
         ofTexture leftTex, rightTex, depthTex, measureTex;
         ofPixels leftPix, rightPix, depthPix, measurePix;
-        sl::Mat leftMat, rightMat, depthMat, measureMat;
+        sl::Mat leftMat, rightMat, depthMat, measureMat, cloudMat;
         vector<ofVec3f> pointCloud_;
         vector<ofColor> pointCloudColors_;
         vector<ofFloatColor> pointCloudFloatColors_;

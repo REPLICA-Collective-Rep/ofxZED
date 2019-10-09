@@ -4,9 +4,9 @@
 #include "ofxZEDSVO.h"
 #include "ofxZEDDatabase.h"
 #include "ofxZEDPlayer.h"
+#include "ofxDatGuiTheme.h"
 #include <sl/Camera.hpp>
 
-static  ofRectangle ofTextBounds(string text);
 
 namespace ofxZED {
 
@@ -17,6 +17,7 @@ namespace ofxZED {
         uint64_t end;
         string startStr;
         string endStr;
+        string link = "";
         Range(string name_, uint64_t start_, uint64_t end_) {
             name = name_;
             start = start_;
@@ -47,6 +48,8 @@ namespace ofxZED {
         Range * range;
         Timeline();
 
+        ofxDatGuiTheme * theme;
+
         uint64_t currentTime;
         std::map<string, ofxZED::Player *> players;
         std::map<string, ofxZED::SVO *> mapped;
@@ -55,8 +58,6 @@ namespace ofxZED {
 
 //        string currentRoot;
         bool isPlaying;
-        bool isStereoscopic;
-        bool isPsychedelic;
 
         bool isTimeline;
         bool isBlocks;
@@ -86,22 +87,22 @@ namespace ofxZED {
         void init();
         void load(vector<SVO *> svos_);
         void set(vector<SVO *> svos_, bool load = false);
-//        ofRectangle txtBounds(string text);
-        void draw();
 
-        void update();
+        bool update();
 
         uint64_t getStart();
         uint64_t getEnd();
         void drawBlocks(ofRectangle bounds);
         void drawTimeline(ofRectangle bounds);
-        void drawPlayers(ofRectangle bounds);
         void drawButtons(ofRectangle bounds);
 
         void setTimeFromXY(int x, int y);
         void setSVOFromXY(int x, int y);
         bool doesIntersect(ofRectangle & rect, vector<ofRectangle> & rects);
         void nudge( int frames );
+
+        void drawString(string txt, int x, int y);
+        int getStringWidth(string txt, int x, int y);
     };
 
 }

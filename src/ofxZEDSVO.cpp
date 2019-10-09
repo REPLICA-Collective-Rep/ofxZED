@@ -2,11 +2,183 @@
 
 namespace ofxZED {
 
+    void SVO::scrape(ofxZED::Camera & zed) {
+        frames.clear();
+        lookup.clear();
+
+        ofLogNotice("ofxZED::SVO") << "beginning scrape";
+
+        zed.setSVOPosition(0);
+        int total = zed.getSVONumberOfFrames();
+
+        for (int i = 0; i < total; i++) {
+
+            float tt = ofGetElapsedTimef();
+            bool timeout = false;
+            while ( zed.grab() != sl::SUCCESS && !timeout )  {
+                if (ofGetElapsedTimef() > tt + 2) {
+                    ofLogError("ofxZED::Database") << "timout";
+                    timeout = true;
+                }
+                sl::sleep_ms(1);
+            }
+
+            if (!timeout) {
+
+                uint64_t timestamp = zed.getFrameTimestamp();
+                int frameIdx = zed.getSVOPosition()-1;
+                float fps = zed.getCameraFPS();
+
+                if (frameIdx != i) {
+                    ofLogError("ofxZED::Database") << "something went wrong:" << frameIdx << "does not equal" << i;
+                }
+               frames.push_back( Frame(frameIdx, timestamp) );
+               int repetitions = 0;
+               if (i > 0) {
+                   float millis = ofxZED::SVO::getDurationMillis(frames[i-1].timestamp, timestamp);
+                   float fpsMillis = 1000.0/fps;
+                   float effectiveFps = 1000.0/millis;
+                   repetitions =  round(millis/fpsMillis);
+                   for (auto _ = repetitions; _--;) lookup.push_back(i);
+               }
+
+               bool printProgress = false;
+
+               if (printProgress) {
+                string actualStr = ofToString(i)+"/"+ofToString(total);
+                std::cout.flush();
+                std::cout << "... lookup table: "+ofToString(lookup.size())+" "+actualStr+"";
+                std::cout.flush();
+               }
+            }
+        }
+
+    }
+
+    bool SVO::hasPoseIdx(int i ) {
+        return i < poses.frames.size();
+    }
+    bool SVO::hasLookupIdx(int i ) {
+        return i < lookup.size();
+    }
+    bool SVO::hasTimestampIdx(int i ) {
+        return i < frames.size();
+    }
+    string SVO::getName() {
+        return filename.substr(0, path.size() - 4);
+    }
+    string SVO::getLookupPath() {
+         return path.substr(0, path.size() - 4) + ".lookup";
+    }
+    string SVO::getPosesPath() {
+         return path + ".poses";
+    }
+    string SVO::getSVOPath() {
+         return path;
+    }
+
+    bool SVO::hasLookupFile() {
+
+        return ofFile::doesFileExist(getLookupPath(), false);
+    }
+    bool SVO::hasPosesFile() {
+
+        return ofFile::doesFileExist(getPosesPath(), false);
+
+    }
+    void SVO::checkForPoses() {
+        if (poses.frames.size() <= 3 && hasPosesFile()) {
+            ofLogNotice("ofxZED::SVO") << "poses not loaded yet";
+            loadPoses();
+        }
+
+    }
+    void SVO::checkForLookup() {
+        if (lookup.size() <= 3 && hasLookupFile()) {
+
+            ofLogNotice("ofxZED::SVO") << "lookup not loaded yet";
+            loadLookup();
+        }
+
+    }
+
+    int SVO::getLookupIndex(int i) {
+        if (!hasLookupIdx(i)) {
+            ofLogError("ofxZED::SVO") << "no lookup at this index";
+            return 0;
+        }
+        return lookup[i];
+    }
+
+    void SVO::loadPoses() {
+        ofLogNotice("ofxZED::SVO") << "loading .svo.poses" << getPosesPath();
+
+        ofJson j = ofLoadJson(getPosesPath());
+        ofLogNotice("ofxZED::SVO") << "parsing .svo.poses" << j["frames"].size() << "frames";
+
+        for (auto & frame : j["frames"]) {
+            ofxPose::Frame frame_;
+
+            if (!frame.is_null()) {
+                for (auto & person : frame) {
+                    ofxPose::Person person_;
+                    for (auto & joint : person.items()) {
+
+                        try  {
+
+                            int key = ofToInt( joint.key() );
+                            float x = joint.value()[0].get<float>();
+                            float y = joint.value()[1].get<float>();
+                            float z = joint.value()[2].get<float>();
+                            float weight = joint.value()[3].get<float>();
+
+                            /*-- if is centre of gravity --*/
+
+                            if (key == -1) person_.center = ofVec3f(x,y,z);
+
+                            /*-- if is joint --*/
+
+                            if (key != -1)  {
+                                int to = joint.value()[4].get<int>();
+                                person_.add( key, ofxPose::Joint(key, ofVec3f(x,y,z), to, weight) );
+                                frame_.raw.push_back( ofVec3f(x,y,z) );
+                            }
+                        } catch (int e) {
+                            ofLogError("ofxZED::SVO") << "pose error on joint" << joint;
+                        }
+
+                    }
+                    frame_.add( person_ );
+                }
+            } else {
+
+            }
+
+            poses.add( frame_ );
+        }
+        ofLogNotice("ofxZED::SVO") << "success .svo.poses" << j["frames"].size() << "frames";
+    }
+
+    void SVO::loadLookup() {
+        ofLogNotice("ofxZED::SVO") << "loading lookup table" << getLookupPath();
+        ofJson j = ofLoadJson(getLookupPath());
+        init(j);
+    }
 
     void SVO::init( ofFile &f, int fps_) {
         filename = f.getFileName();
         path = f.getAbsolutePath();
         fps = fps_;
+    }
+
+    int SVO::getTotalLookupFrames() {
+        return lookup.size();
+    }
+
+    int SVO::getLookupIndexFromTimestamp(uint64_t time) {
+        checkForLookup();
+        int idx = mapFromTimestamp(time, getStart(), getEnd(), 0, getTotalLookupFrames(), true);
+        return lookup[idx];
     }
 
     int SVO::getTotalFrames() {
@@ -213,18 +385,6 @@ namespace ofxZED {
         return info;
     }
 
-    string SVO::getName() {
-        return filename.substr(0, path.size() - 4);
-    }
-    string SVO::getLookupPath() {
-         return path.substr(0, path.size() - 4) + ".lookup";
-    }
-    string SVO::getPosesPath() {
-         return path.substr(0, path.size() - 4) + ".poses";
-    }
-    string SVO::getSVOPath() {
-         return path;
-    }
 
     ofJson SVO::getJson(bool withTables) {
         ofJson j;

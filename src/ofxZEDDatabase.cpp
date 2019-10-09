@@ -151,28 +151,32 @@ namespace ofxZED {
 
         if (json["files"].find(f.getFileName()) != json["files"].end() && !isForcingRecreate) {
 
+            ofLogNotice("ofxZED::Database") << "loading svo entry with lookup:" << withLookup;
+
             SVO svo;
             svo.init(json["files"][f.getFileName()]);
             data.push_back(svo);
             string lookupPath = data.back().getLookupPath();
             ofFile file(lookupPath);
             bool hasLookup = file.exists();
-            if (!hasLookup) {
+            if (!hasLookup && withLookup) {
+
+
 
                 ofLogNotice("ofxZED::Database") << "lookup table not found, creating new..." << svo.getLookupPath();
                 recreateLookups = true;
                 if (zed.openSVO(f.getAbsolutePath())) {
-                    scrape(f, data.back().frames, data.back().lookup);
+                    ofLogNotice("ofxZED::Database") << "creating lookup table for entry" << svo.getLookupPath();
+                    data.back().scrape(zed);
                 } else {
                     ofLogError("ofxZED::Database") << "could not open" << f.getAbsolutePath();
                     OF_EXIT_APP(0);
                 }
-            } else {
+            } else if (withLookup) {
 
                 ofLogNotice("ofxZED::Database") << "loading lookup table" << svo.getLookupPath();
-                ofJson j = ofLoadJson(data.back().getLookupPath());
-                data.back().init(j);
-                ofLogNotice("ofxZED::Database") << "frames:" << data.back().frames.size() << "lookup:" << data.back().lookup.size();
+
+                svo.loadLookup();
             }
 
 
@@ -185,8 +189,8 @@ namespace ofxZED {
             if (zed.openSVO(f.getAbsolutePath())) {
 
                 SVO svo;
-                scrape(f, svo.frames, svo.lookup);
                 svo.init(f, zed.getCameraFPS());
+                svo.scrape(zed);
                 svo.printInfo();
                 data.push_back(svo);
                 totalFrames += svo.getTotalFrames();
@@ -242,20 +246,10 @@ namespace ofxZED {
 
         typedef std::chrono::system_clock::time_point time_point;
         typedef ofxZED::SVO S;
-
-        time_point tps = S::getTimePoint(start);
-        time_point tpe = S::getTimePoint(end);
         string format = "%H:%M";
         vector<SVO *> db;
-        ofLog() << "START" << S::getHumanTimestamp(start);
-        ofLog() << "END" << S::getHumanTimestamp(end);
         for (auto & d : data) {
 
-            time_point tpstart = S::getTimePoint(d.getStart());
-            time_point tpend = S::getTimePoint(d.getEnd());
-
-            ofLog() << "> START" << S::getHumanTimestamp(d.getStart());
-            ofLog() << "> END" << S::getHumanTimestamp(d.getEnd());
 
             bool hasStartIn = (d.getStart() >= start  && d.getStart() <= end);
             bool hasEndIn = (d.getEnd() >= start && d.getEnd() <= end);

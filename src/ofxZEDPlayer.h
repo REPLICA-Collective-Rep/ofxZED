@@ -33,14 +33,14 @@ namespace ofxZED {
     class Player : public ofxZED::Camera {
     public:
         bool isSettingPosition;
-
+        bool left, right, depth, cloud;
         void init();
         ofShader shader;
         ofPlanePrimitive plane;
         Player();
         SVO * svo;
         bool openSVO(SVO * svo_);
-        int grab(bool left, bool right, bool depth);
+        int grab();
         void setSVOPosition(int i );
         void nudge( int frames );
         // void drawStereoscopic(ofRectangle r);

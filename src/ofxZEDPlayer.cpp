@@ -28,6 +28,10 @@ namespace ofxZED {
 
     Player::Player() {
         isSettingPosition = false;
+        left = true;
+        right = false;
+        depth = false;
+        cloud = false;
     }
 
     void Player::init() {
@@ -63,13 +67,13 @@ namespace ofxZED {
         return ofxZED::Camera::openSVO(svo->getSVOPath());
     }
 
-    int Player::grab(bool left, bool right, bool depth) {
+    int Player::grab() {
+
 
 
         if (!sl::Camera::isOpened()) return  sl::Camera::getSVOPosition();
 
         frameNew = false;
-
         sl::RuntimeParameters runtime_parameters;
         runtime_parameters.sensing_mode = sl::SENSING_MODE_FILL; // Use STANDARD sensing mode
         runtime_parameters.enable_depth = depth;
@@ -83,85 +87,86 @@ namespace ofxZED {
 
             if (sl::Camera::getSVOPosition() == lastPosition)  sl::Camera::getSVOPosition();
 
-            sl::Camera::retrieveImage(leftMat, sl::VIEW_LEFT, sl::MEM_CPU, w,h);
-            sl::Camera::retrieveImage(depthMat, sl::VIEW_DEPTH, sl::MEM_CPU, w, h);
+//            ofLog() << "retrieving..." << w << h;
 
+            if (left) {
 
-//            sl::Camera::retrieveMeasure(measureMat, sl::MEASURE::MEASURE_DEPTH, sl::MEM_CPU, w, h);
-//            depthMat.normalizeMeasure(sl::MEASURE::MEASURE_DEPTH, 0, 20000);
-
-            if (!leftPix.isAllocated()) {
-                //leftPix.allocate(w, h, 3);
-                //leftTex.allocate(w, h, GL_RGB, false);
+                if (!leftPix.isAllocated()) {
+                    leftPix.allocate(w, h, 3);
+                    leftTex.allocate(w, h, GL_RGB, false);
+                }
+                sl::Camera::retrieveImage(leftMat, sl::VIEW_LEFT, sl::MEM_CPU, w,h);
+                leftPix.setFromPixels( leftMat.getPtr<sl::uchar1>(), w, h, OF_PIXELS_BGRA );
+                leftTex.loadData(leftPix);
             }
-            if (!depthPix.isAllocated()) {
-//                depthPix.allocate(w, h, 4);
-//                depthTex.allocate(w, h, GL_RGB, false);
+
+            if (right) {
+
+                if (!rightPix.isAllocated()) {
+                    rightPix.allocate(w, h, 3);
+                    rightTex.allocate(w, h, GL_RGB, false);
+                }
+                sl::Camera::retrieveImage(rightMat, sl::VIEW_RIGHT, sl::MEM_CPU, w,h);
+                rightPix.setFromPixels( rightMat.getPtr<sl::uchar1>(), w, h, OF_PIXELS_BGRA );
+                rightTex.loadData(rightPix);
             }
-//            if (!measurePix.isAllocated()) {
-//                measurePix.allocate(w, h, 1);
-//                measureTex.allocate(w, h, GL_LUMINANCE, false);
-//            }
 
+            if (depth) {
 
-//            leftPix.setFromPixels( leftMat.getPtr<sl::uchar1>(), w, h, OF_PIXELS_BGRA );
-//            depthPix.setFromPixels( depthMat.getPtr<sl::uchar1>(), w, h, OF_PIXELS_BGRA);
+                if (!depthPix.isAllocated()) {
+                    depthPix.allocate(w, h, 3);
+                    depthTex.allocate(w, h, GL_RGB, false);
+                }
+                sl::Camera::retrieveImage(depthMat, sl::VIEW_DEPTH, sl::MEM_CPU, w, h);
+                depthPix.setFromPixels( depthMat.getPtr<sl::uchar1>(), w, h, OF_PIXELS_BGRA );
+                depthTex.loadData(depthPix);
+            }
 
+            if (cloud) {
+               sl::Camera::retrieveMeasure(cloudMat, sl::MEASURE_XYZRGBA, sl::MEM_CPU, w, h);
+               mesh.clear();
 
+               float *data = (cloudMat.getPtr<sl::float1>());
+               unsigned char *data_char = cloudMat.getPtr<sl::uchar1>();
+               vector<glm::vec3> points;
+               vector<ofFloatColor> colors;
 
-            processMatToPix( leftPix, leftMat, false);
-            processMatToPix( depthPix, depthMat, false );
+               for (int y = 0; y < h; y++) {
+                   for (int x = 0; x < w; x++) {
+                       int index = (x + w * y) * 4;
+                       int index_color = (index + 3) *4;
 
+//                       mesh.addVertex(ofVec3f(data[index], data[index + 1], data[index + 2]));
+//                       mesh.addColor( ofFloatColor(data_char[index_color], data_char[index_color + 1], data_char[index_color + 2], data_char[index_color + 3])  );
+                       points.push_back(glm::vec3(data[index], data[index + 1], data[index + 2]));
+                       colors.push_back( ofFloatColor(data_char[index_color], data_char[index_color + 1], data_char[index_color + 2], data_char[index_color + 3])  );
+                   }
+               }
 
-
-//            measurePix.setFromPixels( measureMat.getPtr<sl::uchar1>(), w, h, OF_PIXELS_GRAY);
-
-
-            leftTex.loadData(leftPix.getData(), w, h, GL_RGB);
-            depthTex.loadData(depthPix.getData(), w, h, GL_RGB);
-
-
-
-
-//            measureTex.loadData(measurePix);
-
-
-//            sl::Mat zedView;
-//            retrieveMeasure(zedView, sl::MEASURE_XYZRGBA);
-//            int step = zedView.getStep() / 4;
-//            int step_char = zedView.getStep();
-//            pointCloud_.resize(w*h);
-//            pointCloudColors_.resize(w*h);
-//            pointCloudFloatColors_.resize(w*h);
-//            mesh.clear();
-
-//            float *data = (zedView.getPtr<sl::float1>());
-//            unsigned char *data_char = zedView.getPtr<sl::uchar1>();
-
-//            for (int y = 0; y < h; y++) {
-//                for (int x = 0; x < w; x++) {
-//                    int index = (x + w*y) * 4; //formerly step * y
-//                    int index_color = (index + 3) *4;
-
-//                    pointCloud_[x + w*y] = ofVec3f(data[index], data[index + 1], data[index + 2]);
-//                    mesh.addVertex( pointCloud_[x + w*y ]);
-//                    pointCloudColors_[x + w*y] = ofColor(data_char[index_color], data_char[index_color + 1], data_char[index_color + 2], data_char[index_color + 3]);
-//                    mesh.addColor( ofFloatColor(data_char[index_color], data_char[index_color + 1], data_char[index_color + 2], data_char[index_color + 3])  );
-//                }
-//            }
-
-//            size_t n = pointCloudColors_.size();
-//            pointCloudFloatColors_.resize(n);
-//            for (size_t i = 0; i < n; i++) {
-//                pointCloudFloatColors_[i] = pointCloudColors_[i];
-//            }
-//            lastPosition = sl::Camera::getSVOPosition();
-//            mesh.addVertices(pointCloud_);
-//            if (pointCloudFloatColors_.size() == pointCloud_.size()) mesh.addColors(pointCloudFloatColors_);
+               mesh.addVertices(points);
+               mesh.addColors(colors);
+            }
 
 
 
-            if (isSettingPosition) isSettingPosition = false;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+            lastPosition = sl::Camera::getSVOPosition();
+
+            isSettingPosition = false;
 
         } else {
 
@@ -169,6 +174,7 @@ namespace ofxZED {
         }
 
         return sl::Camera::getSVOPosition();
+
     }
 
 

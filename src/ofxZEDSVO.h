@@ -2,6 +2,8 @@
 
 #include "ofMain.h"
 #include <sl/Camera.hpp>
+#include "ofxZEDCamera.h"
+#include "ofxPose.h"
 
 
 namespace ofxZED {
@@ -17,9 +19,12 @@ namespace ofxZED {
     };
 
     class SVO {
+    private:
+        vector<int> lookup;
     public:
 
-        vector<int> lookup;
+
+        ofxPose::Animation poses;
         vector<Frame> frames;
         string filename;
         string path;
@@ -71,7 +76,26 @@ namespace ofxZED {
 
         int getPredictedFrames();
         int getTotalFrames();
+        int getTotalLookupFrames();
         int getLookupLength();
+        int getLookupIndexFromTimestamp(uint64_t time);
+        int getLookupIndex(int i);
+
+
+        bool threadPoses_, threadLookup_;
+
+        void checkForLookup();
+        void checkForPoses();
+
+        bool hasPoseIdx(int i );
+        bool hasLookupIdx(int i );
+        bool hasTimestampIdx(int i );
+
+        bool hasLookupFile();
+        bool hasPosesFile();
+
+        void scrape(ofxZED::Camera & zed);
+
         float getAverageFPS();
         string getDroppedPercent();
         string printInfo();
@@ -79,6 +103,9 @@ namespace ofxZED {
         string getPosesPath();
         string getSVOPath();
         string getName();
+
+        void loadPoses();
+        void loadLookup();
 
         /*-- formats --*/
 
